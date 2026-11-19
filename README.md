@@ -22,6 +22,7 @@ Se a permissão ficar pendente, você pode cancelar. O pedido de câmera tem lim
 - Na galeria, busca e filtros ficam juntos. **Organizar** reúne **Álbuns**, **Backup e importação** e **Armazenamento**. Os filtros e as operações existentes continuam funcionando, incluindo favoritos protegidos.
 - **Monitores** recolhe ou expande histograma, áudio e informações da prévia; a preferência fica salva no navegador. Recolher o painel mantém as ferramentas de imagem ativas. Enter e Espaço operam os títulos recolhíveis sem disparar uma captura.
 - No celular, os painéis abrem pela parte inferior. Seus títulos e botões de fechar permanecem visíveis durante a rolagem. O armazenamento reúne cartões de resumo, barra de uso estimado da cota, recuperação de gravações e uma área separada para limpeza da lixeira.
+- Toques e cliques não mantêm contornos de foco nos botões, seletores e sliders, inclusive após retornos de foco automáticos. A navegação por teclado preserva o indicador de foco; campos de texto continuam mostrando o foco de edição e capturas selecionadas mantêm seu destaque.
 
 ## Câmera
 
@@ -80,7 +81,8 @@ A galeria ocupa toda a página. O botão **⛶** pode ocultar também as barras 
 - Segure uma miniatura por cerca de meio segundo, use o botão direito ou `Shift + F10` para abrir o menu. Ao segurar um item já marcado, o menu usa todo o conjunto selecionado.
 - O menu inclui favoritos, compartilhamento, download, editor, propriedades e exclusão. O download de várias capturas gera um ZIP sem bibliotecas externas.
 - O compartilhamento usa o painel nativo quando disponível. Preparar arquivos grandes pode exigir um segundo toque em **Compartilhar**. Caso o navegador não ofereça esse recurso, use **Baixar**.
-- **Excluir** move os itens para a **lixeira por 30 dias**. **Desfazer** fica disponível por 15 segundos. Depois, abra a lixeira e use **Restaurar**.
+- **Excluir** oferece duas opções: **Mover para a lixeira**, que mantém os itens por **30 dias** e oferece **Desfazer** por 15 segundos, ou **Excluir diretamente, sem lixeira**, que exige confirmação e apaga os arquivos permanentemente, sem possibilidade de desfazer. As opções valem para capturas individuais e seleções em lote; favoritos continuam protegidos. Para recuperar uma exclusão enviada à lixeira depois que o aviso sumir, use **Lixeira → Restaurar**.
+- O aviso de exclusão ocupa espaço no cabeçalho da galeria, sem cobrir os botões do rodapé. Use **×** para dispensá-lo ou **Escape** quando o foco estiver no aviso. Dispensar apenas fecha a mensagem; os arquivos continuam na lixeira e podem ser restaurados por lá.
 - **Favoritos são protegidos contra exclusão**, inclusive em seleções mistas, exclusão permanente e limpeza automática da lixeira. Em lote, somente os itens sem favorito são excluídos. Remova a marcação de favorito antes de excluir. A proteção também verifica o estado atual salvo no banco para impedir exclusões com uma seleção desatualizada de outra aba. Favoritos de backups antigos são restaurados mesmo com prazo de lixeira vencido.
 - Itens vencidos são removidos ao abrir o aplicativo; não há processo rodando quando ele está fechado. A exclusão permanente dentro da lixeira exige confirmação e não pode ser desfeita.
 - Atualizações de favoritos, exclusões e restaurações em lote são transacionais. Falhas no armazenamento preservam o estado anterior.

@@ -395,20 +395,45 @@
     finally { setGalleryBusy(false); }
   }
 
+  function dismissUndo() {
+    const hadFocus = $('undo-bar').contains(document.activeElement);
+    clearTimeout(gallery.undoTimer); gallery.undoTimer = null;
+    gallery.undoIds = []; $('undo-bar').hidden = true;
+    if (hadFocus) (state.selected ? $('viewer-options') : $('gallery-select')).focus({ preventScroll: true });
+  }
+
+  function confirmPermanentDelete(items) {
+    const eligible = items.filter(item => !item.favorite);
+    if (!eligible.length) { notice('Favoritos protegidos. Remova dos favoritos antes de excluir.'); return; }
+    gallery.pendingDelete = eligible.map(item => item.id);
+    $('confirm-delete-description').textContent = `${eligible.length} captura(s) serão apagadas permanentemente${eligible.every(item => item.deletedAt) ? ' da lixeira' : ', sem passar pela lixeira'}. Esta ação não pode ser desfeita.${eligible.length < items.length ? ' Os favoritos serão preservados.' : ''}`;
+    if (!$('confirm-delete').open) $('confirm-delete').showModal();
+  }
+
+  function requestDelete(items) {
+    if (!items.length || gallery.busy) return;
+    const eligible = items.filter(item => !item.favorite);
+    if (!eligible.length) { notice('Favoritos protegidos. Remova dos favoritos antes de excluir.'); return; }
+    if (eligible.every(item => item.deletedAt)) { confirmPermanentDelete(items); return; }
+    gallery.pendingDeleteChoice = items.map(item => item.id);
+    $('delete-options-description').textContent = `${eligible.length} captura(s) podem ser excluídas.${eligible.length < items.length ? ` ${items.length - eligible.length} favorito(s) serão preservados.` : ''}`;
+    if (!$('delete-options').open) $('delete-options').showModal();
+  }
+
   async function deleteItems(items, permanent = false) {
     if (!items.length || gallery.busy) return;
     const protectedCount = items.filter(item => item.favorite).length;
     items = items.filter(item => !item.favorite);
     if (!items.length) { notice('Favoritos protegidos. Remova dos favoritos antes de excluir.'); return; }
     if (items.every((item) => item.deletedAt) && !permanent) {
-      gallery.pendingDelete = items.map((item) => item.id); $('confirm-delete').showModal(); return;
+      confirmPermanentDelete(items); return;
     }
     setGalleryBusy(true);
     try {
       const deletedAt = Date.now();
       await writeBatch(permanent ? items : items.map((item) => ({ ...item, deletedAt })), permanent);
       const ids = new Set(items.map((item) => item.id));
-      if (permanent) state.media = state.media.filter((item) => !ids.has(item.id));
+      if (permanent) { state.media = state.media.filter((item) => !ids.has(item.id)); dismissUndo(); }
       else items.forEach((item) => { item.deletedAt = deletedAt; });
       items.forEach((item) => { gallery.checked.delete(item.id); });
       if (ids.has(state.selected)) closeViewer(); else renderGallery();
@@ -416,7 +441,7 @@
       if (permanent) items.forEach((item) => { const url = gallery.thumbnailURLs.get(item.id); if (url) URL.revokeObjectURL(url); gallery.thumbnailURLs.delete(item.id); });
       else {
         gallery.undoIds = [...ids]; $('undo-message').textContent = `${items.length} captura(s) na lixeira.`; $('undo-bar').hidden = false;
-        clearTimeout(gallery.undoTimer); gallery.undoTimer = setTimeout(() => { $('undo-bar').hidden = true; }, 15000);
+        clearTimeout(gallery.undoTimer); gallery.undoTimer = setTimeout(dismissUndo, 15000);
       }
       updateThumbnail();
       if (protectedCount) notice(`${protectedCount} favorito(s) preservado(s). Somente os demais arquivos foram excluídos.`);
@@ -432,7 +457,7 @@
     try {
       await writeBatch(items.map((item) => ({ ...item, deletedAt: null })));
       items.forEach((item) => { item.deletedAt = null; });
-      gallery.checked.clear(); $('undo-bar').hidden = true;
+      gallery.checked.clear(); dismissUndo();
       if ($('media-menu').open) $('media-menu').close();
       if (state.selected) closeViewer(); else renderGallery();
       updateThumbnail();
@@ -1588,7 +1613,7 @@
   });
   $('viewer-back').addEventListener('click', closeViewer);
   $('download').addEventListener('click', () => downloadItems(state.media.filter((item) => item.id === state.selected)));
-  $('delete').addEventListener('click', () => deleteItems(state.media.filter((item) => item.id === state.selected)));
+  $('delete').addEventListener('click', () => requestDelete(state.media.filter((item) => item.id === state.selected)));
   $('viewer-options').addEventListener('click', () => openMediaMenu([state.selected]));
   for (const [id, direction] of [['viewer-prev', -1], ['viewer-next', 1]]) $(id).addEventListener('click', () => {
     navigateViewer(direction);
@@ -1612,10 +1637,30 @@
   $('action-download').addEventListener('click', () => downloadItems(menuItems()));
   $('action-edit').addEventListener('click', openEditor);
   $('action-properties').addEventListener('click', showProperties);
-  $('action-delete').addEventListener('click', () => deleteItems(menuItems()));
+  $('action-delete').addEventListener('click', () => requestDelete(menuItems()));
+  $('delete-to-trash').addEventListener('click', async () => {
+    if (!$('delete-options').open || gallery.busy) return;
+    const ids = gallery.pendingDeleteChoice || []; gallery.pendingDeleteChoice = null; $('delete-options').close();
+    await deleteItems(state.media.filter(item => ids.includes(item.id)));
+  });
+  $('delete-permanently').addEventListener('click', () => {
+    if (!$('delete-options').open || gallery.busy) return;
+    const ids = gallery.pendingDeleteChoice || []; gallery.pendingDeleteChoice = null; $('delete-options').close();
+    confirmPermanentDelete(state.media.filter(item => ids.includes(item.id)));
+  });
   $('action-restore').addEventListener('click', () => restoreItems(menuItems()));
   $('undo-trash').addEventListener('click', () => restoreItems(state.media.filter((item) => gallery.undoIds.includes(item.id) && item.deletedAt)));
-  $('confirm-delete-action').addEventListener('click', async () => { const ids = gallery.pendingDelete || []; $('confirm-delete').close(); await deleteItems(state.media.filter((item) => ids.includes(item.id) && item.deletedAt), true); });
+  $('undo-dismiss').addEventListener('click', dismissUndo);
+  $('undo-bar').addEventListener('keydown', event => {
+    if (event.key === 'Escape') { event.preventDefault(); event.stopPropagation(); dismissUndo(); }
+  });
+  $('confirm-delete-action').addEventListener('click', async () => {
+    if (!$('confirm-delete').open || gallery.busy) return;
+    const ids = gallery.pendingDelete || []; gallery.pendingDelete = null; $('confirm-delete').close();
+    await deleteItems(state.media.filter(item => ids.includes(item.id)), true);
+  });
+  $('delete-options').addEventListener('close', () => { if (!$('delete-options').open) gallery.pendingDeleteChoice = null; });
+  $('confirm-delete').addEventListener('close', () => { if (!$('confirm-delete').open) gallery.pendingDelete = null; });
   $('backup-open').addEventListener('click', () => { $('backup-status').textContent = ''; $('backup-dialog').showModal(); });
   $('backup-export').addEventListener('click', exportBackup);
   $('backup-file').addEventListener('change', () => importBackup($('backup-file').files[0]));

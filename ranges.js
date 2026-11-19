@@ -53,9 +53,13 @@ window.MobileRanges = (() => {
     input.addEventListener('input', () => refresh(input)); input.addEventListener('change', () => refresh(input));
     input.addEventListener('pointerdown', () => wrapper.classList.add('range-active'));
     for (const type of ['pointerup', 'pointercancel', 'blur']) input.addEventListener(type, () => wrapper.classList.remove('range-active'));
+    input.addEventListener('lostpointercapture', event => { if (!event.buttons) wrapper.classList.remove('range-active'); });
     new MutationObserver(() => refresh(input)).observe(input, { attributes: true, attributeFilter: ['min', 'max', 'step', 'disabled'] });
     refresh(input);
   }
   document.querySelectorAll('input[type="range"]').forEach(enhance);
+  const clearActive = () => controls.forEach(control => control.wrapper.classList.remove('range-active'));
+  for (const type of ['pointerup', 'pointercancel']) document.addEventListener(type, clearActive, { capture: true, passive: true });
+  window.addEventListener('blur', clearActive);
   return { refresh: () => controls.forEach((_, input) => refresh(input)) };
 })();

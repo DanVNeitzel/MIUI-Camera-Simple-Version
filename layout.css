@@ -13,6 +13,8 @@ textarea,
 button { min-width: 44px; touch-action: manipulation; }
 button:disabled { opacity: .45; }
 button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
+html[data-input-mode="pointer"] :is(button:not(.selected), summary, select, input[type="range"], input[type="checkbox"], input[type="radio"]):focus { outline: none; }
+html[data-input-mode="pointer"] .toggle-row input:focus-visible + .toggle-track { outline: none; }
 .muted { font-size: 12px; color: var(--muted); line-height: 1.65; }
 .primary { background: var(--accent); color: #201006; font-weight: 650; }
 .primary:hover { background: #ffb16c; }
@@ -49,6 +51,8 @@ button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-v
 .range-readout { font-size: 12px; line-height: 17px; }
 .mobile-range { --range-accent: var(--accent); }
 .range-active .range-readout, .mobile-range:focus-within .range-readout { background: var(--accent); color: #201006; }
+html[data-input-mode="pointer"] .mobile-range:not(.range-active):focus-within .range-readout { background: #303035; color: #eee; }
+html[data-input-mode="pointer"] .mobile-range.range-vertical:not(.range-active):focus-within .range-readout { background: #17171c; color: #fff; }
 .focus-ring, .focus-ring[data-state="locked"] { border-color: var(--accent); }
 .focus-ring[data-state="locked"]::after, .focus-feedback button { color: var(--accent-text); }
 .filters-panel .filter-categories button[aria-pressed="true"], .filters-panel .filter-options button[aria-pressed="true"], #filter-current { color: var(--accent-text); }
@@ -116,6 +120,10 @@ dialog:not(#gallery-dialog) > .dialog-header { position: sticky; top: 0; z-index
 .gallery-header { top: calc(-12px - env(safe-area-inset-top)); display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 10px; min-height: 64px; margin: -4px 0 10px; padding-block: 10px; }
 .gallery-header h2 { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 17px; }
 .gallery-header-actions { gap: 6px; }
+.gallery-header .undo-bar { position: static; grid-column: 1 / -1; inset: auto; transform: none; width: 100%; max-width: none; margin: 4px 0 0; padding: 8px 10px; gap: 8px; font-size: 12px; }
+.undo-bar #undo-message { flex: 1; min-width: 0; line-height: 1.45; white-space: normal; }
+.undo-bar #undo-trash { flex-shrink: 0; width: auto; padding: 8px; font-size: 12px; }
+.undo-bar #undo-dismiss { width: 44px; min-width: 44px; height: 44px; padding: 10px; color: #eee; }
 .gallery-header-actions #gallery-select { min-height: 44px; min-width: 44px; font-size: 12px; }
 .gallery-tools { display: grid; gap: 10px; margin-bottom: 20px; }
 .gallery-search-row { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 8px; }

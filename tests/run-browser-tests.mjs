@@ -68,7 +68,7 @@ try {
  console.log('PASS v1 migration, 30-day purge, paged/date-grouped thumbnails and zero original reads on reload');
  await evaluate(`document.getElementById('gallery-open').click();document.querySelector('.gallery-item').click()`);
  await wait(`document.getElementById('viewer-image').naturalWidth===128 && document.getElementById('viewer-image').hasAttribute('src')`);
- await evaluate(`document.getElementById('delete').click()`);
+ await evaluate(`document.getElementById('delete').click();document.getElementById('delete-to-trash').click()`);
  await wait(`!document.getElementById('undo-bar').hidden && document.getElementById('viewer').hidden`);
  await evaluate(`document.getElementById('undo-trash').click()`);
  await wait(`document.getElementById('media-count').textContent==='81' && document.getElementById('undo-bar').hidden`);
@@ -76,17 +76,17 @@ try {
  assert.equal(await evaluate(`document.querySelectorAll('.gallery-item').length`),1);
  await evaluate(`document.getElementById('gallery-filter').value='trash';document.getElementById('gallery-filter').dispatchEvent(new Event('change'));document.querySelector('.gallery-item').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}));document.getElementById('action-restore').click()`);
  await wait(`document.querySelectorAll('.gallery-item').length===0 && !document.getElementById('media-menu').open`);
- await evaluate(`document.getElementById('gallery-filter').value='all';document.getElementById('gallery-filter').dispatchEvent(new Event('change'));document.getElementById('gallery-select').click();document.querySelectorAll('.gallery-item')[0].click();document.querySelectorAll('.gallery-item')[1].click();document.getElementById('selection-actions').click();window.originalPut=IDBObjectStore.prototype.put;let n=0;IDBObjectStore.prototype.put=function(...args){if(this.name==='catalog'&&++n===2)throw new Error('Failure');return originalPut.apply(this,args)};document.getElementById('action-delete').click()`);
+ await evaluate(`document.getElementById('gallery-filter').value='all';document.getElementById('gallery-filter').dispatchEvent(new Event('change'));document.getElementById('gallery-select').click();document.querySelectorAll('.gallery-item')[0].click();document.querySelectorAll('.gallery-item')[1].click();document.getElementById('selection-actions').click();window.originalPut=IDBObjectStore.prototype.put;let n=0;IDBObjectStore.prototype.put=function(...args){if(this.name==='catalog'&&++n===2)throw new Error('Failure');return originalPut.apply(this,args)};document.getElementById('action-delete').click();document.getElementById('delete-to-trash').click()`);
  await wait(`document.getElementById('menu-status').textContent.includes('mantidas')`);
  assert.equal(await evaluate(`CameraStore.list().then(items=>items.filter(x=>x.deletedAt).length)`),0);
- await evaluate(`IDBObjectStore.prototype.put=originalPut;document.getElementById('action-delete').click()`);
+ await evaluate(`IDBObjectStore.prototype.put=originalPut;document.getElementById('action-delete').click();document.getElementById('delete-to-trash').click()`);
  await wait(`!document.getElementById('media-menu').open`);
  assert.equal(await evaluate(`CameraStore.list().then(items=>items.filter(x=>x.deletedAt).length)`),2);
- await evaluate(`document.getElementById('gallery-select').click();document.getElementById('gallery-filter').value='trash';document.getElementById('gallery-filter').dispatchEvent(new Event('change'));document.querySelector('.gallery-item').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}));document.getElementById('action-delete').click()`);
+ await evaluate(`document.getElementById('gallery-select').click();document.getElementById('gallery-filter').value='trash';document.getElementById('gallery-filter').dispatchEvent(new Event('change'));document.querySelector('.gallery-item').dispatchEvent(new MouseEvent('contextmenu',{bubbles:true,cancelable:true}));document.getElementById('action-delete').click();document.getElementById('delete-to-trash').click()`);
  assert.equal(await evaluate(`document.getElementById('confirm-delete').open`),true);
  await evaluate(`document.querySelector('#confirm-delete [data-close]').click()`);
  assert.equal(await evaluate(`CameraStore.list().then(items=>items.filter(x=>x.deletedAt).length)`),2);
- await evaluate(`document.getElementById('action-delete').click();document.getElementById('confirm-delete-action').click()`);
+ await evaluate(`document.getElementById('action-delete').click();document.getElementById('delete-to-trash').click();document.getElementById('confirm-delete-action').click()`);
  await wait(`document.querySelectorAll('.gallery-item').length===1`);
  console.log('PASS undo, trash restoration, video filter, atomic soft deletion and confirmed permanent deletion');
  await evaluate(`document.getElementById('gallery-filter').value='photo';document.getElementById('gallery-filter').dispatchEvent(new Event('change'));document.querySelector('.gallery-item').click()`);
@@ -339,7 +339,7 @@ try {
  assert.equal(await evaluate(`(async()=>{const items=await CameraStore.list(),fav=items.find(i=>i.id==='guard-fav'),plain=items.find(i=>i.id==='guard-plain');try{await CameraStore.updateMany([{...plain,deletedAt:Date.now()},{...fav,favorite:false,deletedAt:Date.now()}]);return false;}catch{}const after=await CameraStore.list();return !after.find(i=>i.id===plain.id).deletedAt && !after.find(i=>i.id===fav.id).deletedAt;})()`),true);
  assert.equal(await evaluate(`(async()=>{const fav=(await CameraStore.list()).find(i=>i.id==='guard-fav');try{await CameraStore.updateMany([{...fav,favorite:false}],true);return false;}catch{}return !!(await CameraStore.get(fav.id))?.blob && !!(await CameraStore.thumbnail(fav.id))?.blob;})()`),true);
  await call('Page.reload');await wait(`document.readyState==='complete' && !document.getElementById('gallery-loading').textContent`);
- await evaluate(`(()=>{document.getElementById('gallery-open').click();const q=document.getElementById('cinema-search');q.value='Protecao QA';q.dispatchEvent(new Event('input'));document.getElementById('gallery-select').click();document.getElementById('select-all').click();document.getElementById('selection-actions').click();document.getElementById('action-delete').click();})()`);
+ await evaluate(`(()=>{document.getElementById('gallery-open').click();const q=document.getElementById('cinema-search');q.value='Protecao QA';q.dispatchEvent(new Event('input'));document.getElementById('gallery-select').click();document.getElementById('select-all').click();document.getElementById('selection-actions').click();document.getElementById('action-delete').click();document.getElementById('delete-to-trash').click();})()`);
  await wait(`!document.getElementById('media-menu').open`);
  assert.equal(await evaluate(`CameraStore.list().then(x=>!x.find(i=>i.id==='guard-fav').deletedAt && !!x.find(i=>i.id==='guard-plain').deletedAt && !!x.find(i=>i.id==='guard-trash'))`),true);
  await evaluate(`document.getElementById('gallery-select').click();document.querySelector('[data-id="guard-fav"]').click()`);
@@ -349,7 +349,7 @@ try {
  assert.equal(await evaluate(`document.getElementById('action-delete').disabled`),true);
  await evaluate(`document.getElementById('action-favorite').click()`);
  await wait(`!document.getElementById('media-menu').open && !document.getElementById('delete').disabled`);
- await evaluate(`document.getElementById('delete').click()`);
+ await evaluate(`document.getElementById('delete').click();document.getElementById('delete-to-trash').click()`);
  await wait(`CameraStore.list().then(x=>!!x.find(i=>i.id==='guard-fav').deletedAt)`);
  assert.equal(await evaluate(`(async()=>{const item=(await CameraStore.list()).find(i=>i.id==='guard-fav');await CameraStore.updateMany([item],true);return !(await CameraStore.get(item.id));})()`),true);
  await evaluate(`document.getElementById('gallery-dialog').close()`);
@@ -473,7 +473,7 @@ try {
  await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});await pause(200);
  assert.equal(await evaluate(cameraTargets),true);await layoutShot('camera-320');
  await clickAt('#gallery-open');
- assert.equal(await evaluate(`document.getElementById('gallery-dialog').scrollWidth<=innerWidth && [...document.querySelectorAll('.gallery-header button,.gallery-tools input,.gallery-tools select,#organize-open')].every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth;})`),true);
+ assert.equal(await evaluate(`document.getElementById('gallery-dialog').scrollWidth<=innerWidth && [...document.querySelectorAll('.gallery-header button,.gallery-tools input,.gallery-tools select,#organize-open')].filter(b=>b.getClientRects().length).every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth;})`),true);
  await layoutShot('gallery-320');await evaluate(`document.getElementById('gallery-dialog').close()`);
  await call('Emulation.setDeviceMetricsOverride',{width:844,height:390,deviceScaleFactor:1,mobile:true});await pause(250);
  assert.equal(await evaluate(`(()=>{const stage=document.getElementById('stage').getBoundingClientRect(),rail=document.querySelector('.bottom-controls').getBoundingClientRect();return Math.abs(stage.right-rail.left)<1&&rail.right<=innerWidth&&rail.height===innerHeight&&[...document.querySelectorAll('.topbar button,.zoom-controls button,.shutter-row button')].filter(b=>b.getClientRects().length).every(b=>{const r=b.getBoundingClientRect();return r.width>=44&&r.height>=44&&r.left>=0&&r.right<=innerWidth&&r.top>=0&&r.bottom<=innerHeight;});})()`),true);
@@ -600,6 +600,108 @@ try {
  assert.equal(await evaluate(`!document.getElementById('shutter').classList.contains('recording')`),true);
  await evaluate(`(async()=>{navigator.mediaDevices.getUserMedia=qaRealUserMedia;navigator.mediaDevices.enumerateDevices=qaRealDevices;qaTone.stop();await qaAudioContext.close();const f=document.getElementById('settings-form');f.elements.microphone.value='default';f.elements.microphone.dispatchEvent(new Event('change'));})()`);
  console.log('PASS encoded MP4/AAC and WebM/Opus contain nonzero decoded audio, downloaded audio, unmuted gallery playback, selected input, silence warning/recovery and rejection of missing audio tracks');
+
+ // Deletion feedback reserves header space and can be dismissed without restoring files.
+ await evaluate(`(async()=>{const c=document.createElement('canvas');c.width=c.height=32;const blob=await new Promise(r=>c.toBlob(r,'image/png'));for(const id of ['undo-dismiss-a','undo-dismiss-b','undo-dismiss-c','undo-dismiss-guard'])await CameraStore.save({id,blob,kind:'photo',created:Date.now(),favorite:id.endsWith('guard')});})()`);
+ await call('Page.reload');await wait(`document.readyState==='complete'&&document.querySelector('[data-id="undo-dismiss-a"]')`);
+ await evaluate(`document.getElementById('gallery-open').click();document.querySelector('[data-id="undo-dismiss-a"]').click()`);await wait(`!document.getElementById('delete').disabled&&document.getElementById('viewer-image').hasAttribute('src')`);await evaluate(`document.getElementById('delete').click();document.getElementById('delete-to-trash').click()`);
+ await wait(`!document.getElementById('undo-bar').hidden&&document.getElementById('viewer').hidden`);
+ assert.equal(await evaluate(`document.getElementById('undo-bar').closest('.gallery-header')!==null`),true);
+ await evaluate(`document.querySelector('[data-id="undo-dismiss-guard"]').click()`);await wait(`document.getElementById('viewer-image').hasAttribute('src')&&document.getElementById('viewer-image').naturalWidth===32`);await evaluate(`document.getElementById('viewer-options').scrollIntoView({block:'center'})`);
+ assert.equal(await evaluate(`(()=>{const b=document.getElementById('viewer-options'),r=b.getBoundingClientRect(),notice=document.getElementById('undo-bar').getBoundingClientRect();return notice.bottom<=r.top&&document.elementFromPoint(r.x+r.width/2,r.y+r.height/2)?.closest('button')===b;})()`),true);
+ await clickAt('#viewer-options');await wait(`document.getElementById('media-menu').open`);
+ await evaluate(`document.getElementById('media-menu').close();document.getElementById('viewer-back').click()`);
+ await clickAt('#undo-dismiss');await wait(`document.getElementById('undo-bar').hidden`);
+ assert.equal(await evaluate(`CameraStore.list().then(items=>!!items.find(item=>item.id==='undo-dismiss-a').deletedAt)`),true);
+ await evaluate(`document.querySelector('[data-id="undo-dismiss-b"]').click()`);await wait(`!document.getElementById('delete').disabled&&document.getElementById('viewer-image').hasAttribute('src')`);await evaluate(`document.getElementById('delete').click();document.getElementById('delete-to-trash').click()`);
+ await wait(`!document.getElementById('undo-bar').hidden`);
+ await evaluate(`document.getElementById('undo-dismiss').focus()`);await pressKey('Escape','Escape',27);
+ assert.equal(await evaluate(`document.getElementById('undo-bar').hidden&&document.getElementById('gallery-dialog').open&&document.activeElement===document.getElementById('gallery-select')`),true);
+ await evaluate(`document.querySelector('[data-id="undo-dismiss-c"]').click()`);await wait(`!document.getElementById('delete').disabled&&document.getElementById('viewer-image').hasAttribute('src')`);await evaluate(`document.getElementById('delete').click();document.getElementById('delete-to-trash').click()`);
+ await wait(`!document.getElementById('undo-bar').hidden`);
+ await call('Emulation.setDeviceMetricsOverride',{width:320,height:568,deviceScaleFactor:1,mobile:true});await pause(100);
+ assert.equal(await evaluate(`(()=>{const b=document.getElementById('undo-dismiss').getBoundingClientRect(),bar=document.getElementById('undo-bar').getBoundingClientRect();return b.width>=44&&b.height>=44&&b.left>=0&&b.right<=innerWidth&&bar.right<=innerWidth&&bar.top>=0;})()`),true);
+ await clickAt('#undo-trash');await wait(`document.getElementById('undo-bar').hidden`);
+ assert.equal(await evaluate(`CameraStore.list().then(items=>!items.find(item=>item.id==='undo-dismiss-c').deletedAt&&!!items.find(item=>item.id==='undo-dismiss-a').deletedAt&&!!items.find(item=>item.id==='undo-dismiss-b').deletedAt&&items.find(item=>item.id==='undo-dismiss-guard').favorite)`),true);
+ await evaluate(`document.getElementById('gallery-dialog').close()`);
+ await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
+ console.log('PASS dismiss deletion notice by X/Escape, footer actions remain clickable, 320px touch target, discarded message preserves trash and Undo still restores files');
+
+ // Programmatic focus after a pointer action must not leave a keyboard outline.
+ await evaluate(`(async()=>{const c=document.createElement('canvas');c.width=c.height=32;const blob=await new Promise(r=>c.toBlob(r,'image/png'));await CameraStore.save({id:'focus-qa',blob,kind:'photo',created:Date.now()});})()`);
+ await call('Page.reload');await wait(`document.readyState==='complete'&&document.querySelector('[data-id="focus-qa"]')`);
+ await clickAt('#retry');await wait(`!document.getElementById('shutter').disabled`);
+ await clickAt('#gallery-open');await clickAt('[data-id="focus-qa"]');await wait(`document.getElementById('viewer-image').hasAttribute('src')&&document.activeElement===document.getElementById('viewer-back')`);
+ assert.equal(await evaluate(`document.documentElement.dataset.inputMode==='pointer'&&getComputedStyle(document.getElementById('viewer-back')).outlineStyle==='none'`),true);
+ await clickAt('#viewer-back');
+ assert.equal(await evaluate(`document.activeElement.classList.contains('gallery-item')&&getComputedStyle(document.activeElement).outlineStyle==='none'`),true);
+ await pressKey('Tab','Tab',9);await evaluate(`document.querySelector('[data-id="focus-qa"]').focus()`);
+ assert.equal(await evaluate(`document.documentElement.dataset.inputMode==='keyboard'&&getComputedStyle(document.activeElement).outlineStyle==='solid'`),true);
+ await clickAt('#gallery-select');await clickAt('[data-id="focus-qa"]');
+ assert.equal(await evaluate(`document.documentElement.dataset.inputMode==='pointer'&&document.querySelector('[data-id="focus-qa"]').classList.contains('selected')&&getComputedStyle(document.querySelector('[data-id="focus-qa"]')).outlineWidth==='3px'`),true);
+ await evaluate(`document.getElementById('gallery-dialog').close()`);
+ await clickAt('#filters-open');await clickAt('#filters-close');
+ assert.equal(await evaluate(`document.activeElement===document.getElementById('filters-open')&&getComputedStyle(document.activeElement).outlineStyle==='none'`),true);
+ await pressKey('Tab','Tab',9);await evaluate(`document.getElementById('filters-open').focus()`);await pressKey('Enter','Enter',13);await pressKey('Escape','Escape',27);
+ assert.equal(await evaluate(`document.documentElement.dataset.inputMode==='keyboard'&&document.activeElement===document.getElementById('filters-open')&&getComputedStyle(document.activeElement).outlineStyle==='solid'`),true);
+ await call('Emulation.setTouchEmulationEnabled',{enabled:true});
+ const touchFocusPoint=await evaluate(`(()=>{const r=document.getElementById('timer').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+ await call('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[touchFocusPoint]});await call('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+ await evaluate(`document.getElementById('filters-open').focus()`);
+ assert.equal(await evaluate(`document.documentElement.dataset.inputMode==='pointer'&&getComputedStyle(document.activeElement).outlineStyle==='none'`),true);
+ await call('Emulation.setTouchEmulationEnabled',{enabled:false});
+ await clickAt('#settings-open');await evaluate(`document.querySelector('[data-group="camera"]').open=true;document.getElementById('settings-form').elements.keyboard.focus()`);
+ assert.equal(await evaluate(`getComputedStyle(document.getElementById('settings-form').elements.keyboard.parentElement.querySelector('.toggle-track')).outlineStyle==='none'`),true);
+ await pressKey('Tab','Tab',9);await evaluate(`document.getElementById('settings-form').elements.keyboard.focus()`);
+ assert.equal(await evaluate(`getComputedStyle(document.getElementById('settings-form').elements.keyboard.parentElement.querySelector('.toggle-track')).outlineStyle==='solid'`),true);
+ await clickAt('#settings-form input[name="keyboard"]');
+ assert.equal(await evaluate(`getComputedStyle(document.getElementById('settings-form').elements.keyboard.parentElement.querySelector('.toggle-track')).outlineStyle==='none'`),true);
+ await evaluate(`document.getElementById('settings-dialog').close()`);await wait(`document.activeElement===document.querySelector('.camera-app')`);
+ await clickAt('#zoom-toggle');
+ const pointerFocusRange=await evaluate(`(()=>{const r=document.getElementById('zoom').getBoundingClientRect();return {x:r.x+r.width/2,y:r.y+r.height/2};})()`);
+ await call('Input.dispatchMouseEvent',{type:'mousePressed',button:'left',clickCount:1,...pointerFocusRange});
+ assert.equal(await evaluate(`document.getElementById('zoom').closest('.mobile-range').classList.contains('range-active')`),true);
+ await call('Input.dispatchMouseEvent',{type:'mouseMoved',button:'left',buttons:1,x:5,y:100});await call('Input.dispatchMouseEvent',{type:'mouseReleased',button:'left',clickCount:1,x:5,y:100});
+ assert.equal(await evaluate(`!document.getElementById('zoom').closest('.mobile-range').classList.contains('range-active')`),true);
+ const pointerReadoutColor=await evaluate(`getComputedStyle(document.getElementById('zoom').closest('.mobile-range').querySelector('.range-readout')).backgroundColor`);
+ await pressKey('ArrowRight','ArrowRight',39);
+ assert.notEqual(await evaluate(`getComputedStyle(document.getElementById('zoom').closest('.mobile-range').querySelector('.range-readout')).backgroundColor`),pointerReadoutColor);
+ console.log('PASS pointer/touch focus restoration has no stuck outline, keyboard rings retained, selected photos remain highlighted, checkbox ring follows input mode and range release outside clears active highlight');
+
+ // Direct deletion is explicit, confirmed and protected against favorite races.
+ await evaluate(`(async()=>{const c=document.createElement('canvas');c.width=c.height=32;const blob=await new Promise(r=>c.toBlob(r,'image/png'));for(const id of ['direct-a','direct-b','direct-favorite','direct-trash','direct-race-plain','direct-race-protected'])await CameraStore.save({id,blob,kind:'photo',created:Date.now(),favorite:id==='direct-favorite'});})()`);
+ await call('Page.reload');await wait(`document.readyState==='complete'&&document.querySelector('[data-id="direct-a"]')`);
+ await evaluate(`document.getElementById('gallery-open').click();document.querySelector('[data-id="direct-a"]').click()`);await wait(`document.getElementById('viewer-image').hasAttribute('src')&&!document.getElementById('delete').disabled`);
+ await evaluate(`document.getElementById('delete').click()`);
+ assert.equal(await evaluate(`document.getElementById('delete-options').open&&!document.getElementById('confirm-delete').open`),true);
+ await evaluate(`document.querySelector('#delete-options [data-close]').click();document.getElementById('confirm-delete-action').click()`);
+ assert.equal(await evaluate(`CameraStore.list().then(items=>items.some(item=>item.id==='direct-a'&&!item.deletedAt))`),true);
+ await evaluate(`document.getElementById('delete').click();document.getElementById('delete-permanently').click()`);
+ assert.equal(await evaluate(`document.getElementById('confirm-delete').open&&document.getElementById('confirm-delete-description').textContent.includes('sem passar pela lixeira')`),true);
+ await pressKey('Escape','Escape',27);await evaluate(`document.getElementById('confirm-delete-action').click()`);
+ assert.equal(await evaluate(`CameraStore.get('direct-a').then(item=>!!item?.blob)`),true);
+ await evaluate(`document.getElementById('delete').click();document.getElementById('delete-permanently').click();document.getElementById('confirm-delete-action').click()`);
+ await wait(`CameraStore.get('direct-a').then(item=>!item)`);
+ assert.equal(await evaluate(`(async()=>!(await CameraStore.thumbnail('direct-a'))&&!(await CameraStore.list()).some(item=>item.id==='direct-a')&&document.getElementById('undo-bar').hidden)()`),true);
+ await evaluate(`document.getElementById('gallery-select').click();document.querySelector('[data-id="direct-b"]').click();document.querySelector('[data-id="direct-favorite"]').click();document.getElementById('selection-actions').click();document.getElementById('action-delete').click()`);
+ assert.equal(await evaluate(`document.getElementById('delete-options-description').textContent.includes('favorito')`),true);
+ await evaluate(`document.getElementById('delete-permanently').click();document.getElementById('confirm-delete-action').click()`);
+ await wait(`CameraStore.get('direct-b').then(item=>!item)`);
+ assert.equal(await evaluate(`(async()=>!!(await CameraStore.get('direct-favorite'))?.blob&&(await CameraStore.list()).find(item=>item.id==='direct-favorite').favorite)()`),true);
+ await evaluate(`document.getElementById('gallery-select').click();document.querySelector('[data-id="direct-trash"]').click()`);await wait(`document.getElementById('viewer-image').hasAttribute('src')&&!document.getElementById('delete').disabled`);
+ await evaluate(`document.getElementById('delete').click();document.getElementById('delete-to-trash').click()`);
+ await wait(`!document.getElementById('undo-bar').hidden`);await evaluate(`document.getElementById('undo-trash').click()`);await wait(`document.getElementById('undo-bar').hidden`);
+ assert.equal(await evaluate(`CameraStore.list().then(items=>items.some(item=>item.id==='direct-trash'&&!item.deletedAt))`),true);
+ await evaluate(`document.getElementById('gallery-select').click();document.querySelector('[data-id="direct-race-plain"]').click();document.querySelector('[data-id="direct-race-protected"]').click();document.getElementById('selection-actions').click();document.getElementById('action-delete').click();document.getElementById('delete-permanently').click()`);
+ await evaluate(`(async()=>{const item=(await CameraStore.list()).find(item=>item.id==='direct-race-protected');await CameraStore.updateMany([{...item,favorite:true}]);})()`);
+ await evaluate(`document.getElementById('confirm-delete-action').click()`);
+ await wait(`document.getElementById('notice').textContent.includes('exclus')&&document.getElementById('notice').textContent.includes('falhou')`);
+ assert.equal(await evaluate(`(async()=>!!(await CameraStore.get('direct-race-plain'))?.blob&&!!(await CameraStore.thumbnail('direct-race-plain'))?.blob&&!!(await CameraStore.get('direct-race-protected'))?.blob&&(await CameraStore.list()).find(item=>item.id==='direct-race-protected').favorite)()`),true);
+ await evaluate(`document.getElementById('media-menu').close();document.getElementById('gallery-dialog').close()`);
+ console.log('PASS direct delete chooser/confirmation/cancellation, original/catalog/thumbnail removal without trash or Undo, mixed favorites preserved, trash/Undo retained and atomic rollback on a stale favorite');
+
+
+
 
 
 

@@ -5,6 +5,13 @@ window.CameraLayout = (() => {
   function icon(name) { const i = document.createElement('i'); i.className = `fa-solid fa-${name}`; i.setAttribute('aria-hidden', 'true'); return i; }
   function init() {
     const app = document.querySelector('.camera-app');
+    // Scripted focus restoration must not leave a keyboard ring after a tap.
+    // Keep actual focus in place for native controls and keyboard navigation.
+    document.documentElement.dataset.inputMode = 'pointer';
+    document.addEventListener('pointerdown', () => { document.documentElement.dataset.inputMode = 'pointer'; }, { capture: true, passive: true });
+    document.addEventListener('keydown', event => {
+      if (!event.isComposing && ['Tab', 'Enter', ' ', 'Escape', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight', 'Home', 'End', 'PageUp', 'PageDown'].includes(event.key)) document.documentElement.dataset.inputMode = 'keyboard';
+    }, { capture: true });
     const groups = { 'CÂMERA': ['camera', 'Câmera'], 'FOTO': ['photo', 'Foto'], 'VÍDEO': ['video', 'Vídeo'], 'COMPOSIÇÃO': ['composition', 'Composição'], 'MONITORAMENTO CINEMATOGRÁFICO': ['monitor', 'Monitoramento'], 'SISTEMA': ['system', 'Sistema'], 'APLICATIVO': ['app', 'Aplicativo'], 'ARMAZENAMENTO E RECUPERAÇÃO': ['storage', 'Armazenamento e recuperação'] };
     let expanded = {};
     try { const saved = JSON.parse(localStorage.getItem('miui-camera-layout-groups')); if (saved && typeof saved === 'object' && !Array.isArray(saved)) expanded = saved; } catch { /* defaults */ }
@@ -34,6 +41,8 @@ window.CameraLayout = (() => {
     form.append(info);
 
     const tools = $('gallery-tools');
+    // Reserve space in the sticky header instead of covering viewer/footer actions.
+    document.querySelector('.gallery-header').append($('undo-bar'));
     const searchRow = document.createElement('div'); searchRow.className = 'gallery-search-row';
     const filterRow = document.createElement('div'); filterRow.className = 'gallery-filter-row';
     const organize = document.createElement('button'); organize.id = 'organize-open'; organize.type = 'button'; organize.append(icon('folder-open'), document.createTextNode('Organizar'));

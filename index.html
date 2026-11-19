@@ -17,15 +17,15 @@
   <link rel="stylesheet" href="style.css?v=layout-18">
   <script src="storage.js?v=audio-24" defer></script>
   <script src="looks.js?v=cinema-looks-12" defer></script>
-  <script src="ranges.js?v=touch-focus-6" defer></script>
+  <script src="ranges.js?v=focus-26" defer></script>
   <link rel="stylesheet" href="cinema.css?v=layout-18">
   <script src="cinema.js?v=audio-24" defer></script>
   <link rel="stylesheet" href="collection.css?v=layout-18">
   <script src="collection.js?v=layout-18" defer></script>
-  <link rel="stylesheet" href="layout.css?v=audio-24">
-  <script src="layout.js?v=layout-18" defer></script>
+  <link rel="stylesheet" href="layout.css?v=focus-26">
+  <script src="layout.js?v=focus-26" defer></script>
   <script src="fullscreen.js?v=fullscreen-21" defer></script>
-  <script src="script.js?v=audio-24" defer></script>
+  <script src="script.js?v=direct-delete-27" defer></script>
 </head>
 <body>
   <main class="camera-app" tabindex="-1">
@@ -140,7 +140,7 @@
       <p id="save-state" class="muted"></p>
       <div class="viewer-actions"><button id="viewer-prev" aria-label="Captura anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><button id="download" class="primary"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="button-label">Baixar</span></button><button id="viewer-options"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span class="button-label">Opções</span></button><button id="delete" class="danger"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Excluir</span></button><button id="viewer-next" aria-label="Próxima captura"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div>
     </section>
-    <div id="undo-bar" class="undo-bar" role="status" hidden><span id="undo-message"></span><button id="undo-trash"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span class="button-label">Desfazer</span></button></div>
+    <div id="undo-bar" class="undo-bar" role="status" hidden><span id="undo-message"></span><button id="undo-trash" type="button"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span class="button-label">Desfazer</span></button><button id="undo-dismiss" type="button" aria-label="Dispensar aviso de exclusão" title="Dispensar aviso"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
   </dialog>
   <dialog id="media-menu" class="action-sheet" aria-labelledby="media-menu-title">
     <div class="sheet-handle" aria-hidden="true"></div>
@@ -180,7 +180,8 @@
     <p id="editor-status" role="status"></p>
   </dialog>
   <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-header"><h2 id="backup-title">Backup e restauração</h2><button data-close aria-label="Fechar backup"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><p class="muted">Exporte fotos, vídeos, favoritos e lixeira em um arquivo .miuicam. A importação adiciona cópias sem substituir sua coleção. Não são enviados arquivos a servidores.</p><button id="backup-export" class="primary"><i class="fa-solid fa-file-export" aria-hidden="true"></i><span class="button-label">Exportar coleção</span></button><label class="import-label">Restaurar backup<input id="backup-file" type="file" accept=".miuicam,application/octet-stream"></label><p id="backup-status" role="status"></p></dialog>
-  <dialog id="confirm-delete" aria-labelledby="confirm-delete-title"><div class="dialog-header"><h2 id="confirm-delete-title">Excluir permanentemente?</h2><button data-close aria-label="Cancelar exclusão"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><p>Esta ação remove os arquivos da lixeira e não pode ser desfeita.</p><div class="viewer-actions"><button data-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span class="button-label">Cancelar</span></button><button id="confirm-delete-action" class="danger"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Excluir permanentemente</span></button></div></dialog>
+  <dialog id="delete-options" aria-labelledby="delete-options-title" aria-describedby="delete-options-description"><div class="dialog-header"><h2 id="delete-options-title">Como deseja excluir?</h2><button data-close aria-label="Cancelar exclusão"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><p id="delete-options-description" class="muted"></p><div class="media-menu-actions"><button id="delete-to-trash" type="button"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Mover para a lixeira</span></button><button id="delete-permanently" type="button" class="danger"><i class="fa-solid fa-ban" aria-hidden="true"></i><span class="button-label">Excluir diretamente, sem lixeira</span></button><button data-close type="button" class="cancel-action">Cancelar</button></div></dialog>
+  <dialog id="confirm-delete" aria-labelledby="confirm-delete-title" aria-describedby="confirm-delete-description"><div class="dialog-header"><h2 id="confirm-delete-title">Excluir permanentemente?</h2><button data-close aria-label="Cancelar exclusão"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><p id="confirm-delete-description">Os arquivos selecionados serão apagados permanentemente. Esta ação não pode ser desfeita.</p><div class="viewer-actions"><button data-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span class="button-label">Cancelar</span></button><button id="confirm-delete-action" class="danger"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Excluir permanentemente</span></button></div></dialog>
   <p id="notice" class="notice" role="status" hidden></p>
 </body>
 </html>
