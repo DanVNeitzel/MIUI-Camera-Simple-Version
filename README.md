@@ -2,6 +2,8 @@
 
 Câmera em HTML, CSS e JavaScript puro, sem React, npm, backend ou serviços externos. O projeto React continua separado.
 
+[Acessar Preview](https://danvneitzel.github.io/MIUI-Camera-Simple-Version/)
+
 ## Abrir
 
 Publique esta pasta em **HTTPS**. Para testar no computador com Python:
