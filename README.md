@@ -2,8 +2,6 @@
 
 Câmera em HTML, CSS e JavaScript puro, sem React, npm, backend ou serviços externos. O projeto React continua separado.
 
-[Acessar Preview](https://danvneitzel.github.io/MIUI-Camera-Simple-Version/)
-
 ## Abrir
 
 Publique esta pasta em **HTTPS**. Para testar no computador com Python:
@@ -12,7 +10,7 @@ Publique esta pasta em **HTTPS**. Para testar no computador com Python:
 python -m http.server 8080 --bind 127.0.0.1
 ```
 
-Execute dentro desta pasta e abra **http://localhost:8080**. Toque em **Ativar câmera** e autorize o navegador. No celular, use HTTPS com certificado confiável; HTTP com IP local não é suficiente. Em prévias incorporadas, abra o site diretamente em outra aba.
+Execute dentro desta pasta e abra **http://localhost:8080**. Na primeira utilização, toque em **Ativar câmera** e autorize o navegador. Nas próximas aberturas, a câmera inicia automaticamente quando a API de permissões confirma que o acesso já está concedido, inclusive ao voltar à página pelo histórico. O aplicativo não usa uma preferência local como substituto da autorização real. Se o acesso estiver bloqueado, a interface orienta a alterar a permissão do site; se a consulta não for suportada ou não responder, mantém a ativação manual. No celular, use HTTPS com certificado confiável; HTTP com IP local não é suficiente. Em prévias incorporadas, abra o site diretamente em outra aba.
 
 Se a permissão ficar pendente, você pode cancelar. O pedido de câmera tem limite de 20 segundos e o início da imagem, 10 segundos. Um stream recebido depois de cancelar é encerrado. O pedido de microfone também tem limite de 20 segundos.
 
@@ -33,6 +31,9 @@ Se a permissão ficar pendente, você pode cancelar. O pedido de câmera tem lim
 - Temporizador alternando entre **desligado → 3s → 5s → 7s → 10s**, grade de terços/quadrado/ambas, seleção de câmeras e lanterna conforme suporte do aparelho.
 - Noturno, retrato e PRO são efeitos digitais. Não há ajuste real de ISO, foco, abertura, exposição do sensor ou segmentação de pessoas.
 - Vídeos com microfone opcional. Durante a gravação, modo, dispositivo e configurações ficam bloqueados. Não feche a página antes de o vídeo aparecer na galeria.
+- Em **Configurações → Vídeo → Entrada do microfone**, escolha **Padrão do sistema** ou uma entrada disponível. Os nomes são atualizados quando o navegador disponibiliza os dispositivos após a permissão. A escolha fica salva neste navegador. Se a entrada salva não estiver disponível, selecione outra; o app não inicia silenciosamente um vídeo sem faixa de áudio quando o microfone está ligado.
+- O vídeo prefere **MP4 com H.264/AAC**, quando o navegador suporta, e usa **WebM/Opus** como alternativa. A faixa de áudio deve estar ativa e habilitada antes de iniciar. O nome do microfone e seu estado aparecem durante a gravação; interrupções e ausência prolongada de sinal produzem avisos, inclusive quando o medidor visual está recolhido ou desligado. **−60 dBFS** é o piso exibido pelo medidor: se permanecer nesse valor enquanto você fala, confira a entrada selecionada, a permissão do site no Chrome e o acesso ao microfone no Android.
+- Ao abrir um vídeo na galeria, o player é iniciado sem silenciamento e com seu volume em 100%; o volume de mídia do aparelho continua sendo controlado pelo sistema. A prévia da câmera permanece sem reprodução do microfone para evitar eco. As propriedades das novas gravações informam se uma faixa de áudio foi incluída; arquivos antigos podem não ter essa informação.
 - Em **Configurações → Tecla de captura**, habilite o atalho de teclado. **Espaço** captura na tela da câmera mesmo com um botão focado; **Enter** captura com foco na prévia e preserva a ação normal dos botões quando eles estão focados. No modo vídeo, o atalho inicia ou para a gravação. Ele não atua em diálogos, campos ou ranges. A opção não controla os botões de volume do celular.
 - Os filtros ficam em um menu dedicado: toque no ícone de **varinha ao lado de inverter a câmera**. A escolha aparece imediatamente na prévia, é usada nas fotos/vídeos e fica salva nas preferências. Você pode deslizar a lista horizontalmente e fechar o painel por **X**, **Escape** ou tocando fora. Escolha o filtro antes de iniciar uma gravação.
 - Toque na imagem para solicitar foco automático. **Toque e segure** por cerca de meio segundo para solicitar o bloqueio; quando aceito, o indicador mostra um cadeado. O range de iluminação fica ao lado do ponto tocado e pode ser ajustado sem liberar o foco. Use **Desbloquear** para retornar ao automático.
@@ -112,6 +113,8 @@ A restauração valida o cabeçalho, tamanhos e metadados antes de gravar. Adici
 
 ## Instalar e abrir offline
 
+O aplicativo instalado solicita **tela cheia ao iniciar** pelo manifesto (`display: fullscreen`, com fallback `standalone`). O sistema pode aplicar suas próprias limitações, especialmente no iPhone. Quando aberto como uma aba do navegador, o primeiro toque na interface ou uso do teclado solicita tela cheia onde a API permitir; essa entrada depende de uma interação real e não pode ser garantida no carregamento da página. Se o navegador bloquear, use **Configurações → Aplicativo → Entrar em tela cheia** ou instale na tela inicial. Sair voluntariamente da tela cheia não provoca novas solicitações automáticas nessa abertura. Abrir e fechar a galeria mantém a tela cheia do aplicativo; o botão de expansão da galeria continua permitindo alternar explicitamente.
+
 O ícone usa um desenho vetorial editável em `icons/app-icon.svg`, com lente de diafragma laranja e fundo grafite. Os PNGs de 192/512 px atendem à instalação, a versão de 512 px mantém o desenho essencial dentro da área segura de recortes maskable, `apple-touch-icon.png` atende ao atalho de 180 px do iPhone e `favicon-32.png`/SVG à aba do navegador. Para regenerar os PNGs a partir do SVG, execute `node simples_version/icons/build-icons.mjs` na raiz do projeto, com Node 22+ e Chrome/Chromium disponível (ou `CHROME_PATH` configurado).
 
 A pasta inclui manifesto, ícones e service worker. Após abrir uma vez com conexão, a interface fica disponível offline, junto da galeria local. Use **Configurações → Instalar aplicativo** ou o menu do navegador. No Safari, use **Compartilhar → Adicionar à Tela de Início**. A disponibilidade da instalação depende do navegador e de HTTPS/localhost.
@@ -136,6 +139,7 @@ Se o armazenamento falhar durante uma captura, ela permanece na memória com avi
 - `storage.js`: banco, miniaturas, migração e transações; `ranges.js`: controles deslizantes para toque e teclado; `looks.js`: catálogo e intensidade dos presets.
 - `collection.js` e `collection.css`: álbuns, painel de armazenamento e recuperação de vídeos; `cinema.js` e `cinema.css`: ferramentas de monitoramento e presets de configuração.
 - `layout.js` e `layout.css`: organização dos controles, grupos recolhíveis, menu Organizar, cartões e comportamento visual responsivo.
+- `fullscreen.js`: ativação de tela cheia no primeiro gesto, botão manual e tratamento de limitações do navegador.
 - `manifest.webmanifest`, `sw.js`, `icons/`: instalação e interface offline.
 - `tests/run-browser-tests.mjs`: validação com câmera simulada e coleção descartável em um perfil isolado do Chrome.
 

@@ -145,13 +145,16 @@ window.CameraCinema = (() => {
     }
     async function startAudio(stream) {
       await stopAudio(); clipUntil = 0;
-      if (!stream || !options.meters) return;
+      if (!stream) return;
+      let resumeTimer;
       try {
         const Audio = window.AudioContext || window.webkitAudioContext; if (!Audio) throw new Error();
         audioContext = new Audio(); analyser = audioContext.createAnalyser(); analyser.fftSize = 2048;
         audioSource = audioContext.createMediaStreamSource(stream); audioSource.connect(analyser); audioData = new Float32Array(analyser.fftSize);
-        await audioContext.resume();
+        await Promise.race([audioContext.resume(), new Promise((_, reject) => { resumeTimer = setTimeout(() => reject(new Error('Audio context suspended')), 1500); })]);
+        if (audioContext.state !== 'running') throw new Error('Audio context suspended');
       } catch { await stopAudio(); api.notice('Medidor indisponível; a gravação do microfone continua.'); }
+      finally { clearTimeout(resumeTimer); }
     }
     function frame(source, time) {
       frames++;
@@ -164,6 +167,7 @@ window.CameraCinema = (() => {
       if (analyser && audioData && audioContext?.state === 'running') {
         analyser.getFloatTimeDomainData(audioData); let peak = 0;
         for (const value of audioData) peak = Math.max(peak, Math.abs(value));
+        api.audioLevel?.(peak);
         const db = 20 * Math.log10(Math.max(peak, 0.000001));
         if (db >= -1) clipUntil = time + 1500;
         $('cinema-audio').querySelector('meter').value = Math.max(-60, db);

@@ -38,6 +38,9 @@ try {
  const wait=async expression=>{for(let i=0;i<100;i++){if(await evaluate(expression))return;await pause(100);}throw new Error('Timeout: '+expression);};
  await call('Runtime.enable');
  await call('Page.enable');
+ // General UI tests explicitly exercise manual activation; permission-specific
+ // cases below override this baseline to test automatic granted access.
+ await call('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{const original=navigator.permissions.query.bind(navigator.permissions);navigator.permissions.query=descriptor=>descriptor.name==='camera'?Promise.resolve(Object.assign(new EventTarget(),{state:'prompt'})):original(descriptor);})()`});
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  await call('Page.navigate',{url:url+'/seed'});
  await wait(`document.readyState==='complete'`);
@@ -481,6 +484,126 @@ try {
  await call('Emulation.setDeviceMetricsOverride',{width:390,height:844,deviceScaleFactor:1,mobile:true});
  console.log('PASS responsive layout at 320/390px and landscape: centered shutter, 44px targets, grouped gallery/settings, keyboard monitor toggle, storage cards/meter and reachable sticky close buttons');
 
+ // Fullscreen fixture exercises activation/rejection without depending on OS window behavior.
+ await evaluate(`document.fullscreenElement ? document.exitFullscreen() : Promise.resolve()`);
+ const fullscreenFixture=await call('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{
+   const mode=localStorage.getItem('qa-fullscreen-mode')||'allow';window.qaFullscreenCalls=0;window.qaFullscreenExits=0;window.qaFullscreenActive=false;
+   Object.defineProperty(document,'fullscreenElement',{configurable:true,get:()=>window.qaFullscreenActive?document.documentElement:null});
+   Object.defineProperty(document,'webkitFullscreenElement',{configurable:true,get:()=>window.qaFullscreenActive?document.documentElement:null});
+   Object.defineProperty(document,'fullscreenEnabled',{configurable:true,get:()=>mode!=='unsupported'});
+   Object.defineProperty(document,'webkitFullscreenEnabled',{configurable:true,get:()=>true});
+   Object.defineProperty(Element.prototype,'webkitRequestFullscreen',{configurable:true,value:undefined});
+   Object.defineProperty(Element.prototype,'requestFullscreen',{configurable:true,value:mode==='unsupported'?undefined:async options=>{window.qaFullscreenCalls++;window.qaFullscreenOptions=options;if(mode==='reject')throw new DOMException('Blocked','NotAllowedError');window.qaFullscreenActive=true;document.dispatchEvent(new Event('fullscreenchange'));}});
+   Object.defineProperty(document,'exitFullscreen',{configurable:true,value:async()=>{window.qaFullscreenExits++;window.qaFullscreenActive=false;document.dispatchEvent(new Event('fullscreenchange'));}});
+   {const original=window.matchMedia.bind(window);window.matchMedia=query=>{const value=original(query);if(query==='(display-mode: fullscreen)')Object.defineProperty(value,'matches',{value:mode==='installed'});return value;};}
+ })()`});
+ await evaluate(`localStorage.setItem('qa-fullscreen-mode','allow')`);await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('app-fullscreen')`);
+ assert.equal(await evaluate(`qaFullscreenCalls`),0);
+ await clickAt('#retry');await wait(`!document.getElementById('shutter').disabled&&qaFullscreenActive`);
+ assert.equal(await evaluate(`qaFullscreenCalls===1&&qaFullscreenOptions.navigationUI==='hide'`),true);
+ await clickAt('#gallery-open');await evaluate(`document.getElementById('gallery-dialog').close()`);
+ assert.equal(await evaluate(`qaFullscreenActive&&qaFullscreenExits===0`),true);
+ await clickAt('#gallery-open');await clickAt('#gallery-fullscreen');await wait(`!qaFullscreenActive`);
+ await evaluate(`document.getElementById('gallery-dialog').close()`);await clickAt('#settings-open');
+ assert.equal(await evaluate(`qaFullscreenCalls`),1);
+ await evaluate(`document.querySelector('[data-group="app"]').open=true;document.getElementById('app-fullscreen').scrollIntoView({block:'center'})`);
+ await clickAt('#app-fullscreen');await wait(`qaFullscreenActive`);
+ assert.equal(await evaluate(`qaFullscreenCalls===2&&document.getElementById('app-fullscreen').getAttribute('aria-pressed')==='true'`),true);
+ await evaluate(`document.getElementById('settings-dialog').close();localStorage.setItem('qa-fullscreen-mode','reject')`);
+ await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('app-fullscreen')`);
+ await clickAt('#retry');await wait(`!document.getElementById('shutter').disabled&&qaFullscreenCalls===1`);
+ assert.equal(await evaluate(`!qaFullscreenActive&&document.getElementById('fullscreen-status').textContent.includes('bloqueou')`),true);
+ await clickAt('#settings-open');assert.equal(await evaluate(`qaFullscreenCalls`),1);
+ await evaluate(`localStorage.setItem('qa-fullscreen-mode','unsupported')`);await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('app-fullscreen')`);
+ assert.equal(await evaluate(`document.getElementById('app-fullscreen').disabled&&document.getElementById('gallery-fullscreen').disabled`),true);
+ await clickAt('#retry');await wait(`!document.getElementById('shutter').disabled`);assert.equal(await evaluate(`qaFullscreenCalls`),0);
+ await evaluate(`localStorage.setItem('qa-fullscreen-mode','installed')`);await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('app-fullscreen')`);
+ assert.equal(await evaluate(`qaFullscreenCalls===0&&document.getElementById('app-fullscreen').getAttribute('aria-pressed')==='true'&&document.getElementById('app-fullscreen').disabled`),true);
+ await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:fullscreenFixture.identifier});await evaluate(`localStorage.removeItem('qa-fullscreen-mode')`);
+ await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('app-fullscreen')`);
+ console.log('PASS fullscreen manifest launch, first trusted gesture, gallery preservation, explicit exit/reentry, blocked/unsupported API fallback and installed-mode detection (simulated API)');
+
+ // Camera permission reads must reuse a real grant, never a locally saved flag.
+ const cameraPermissionFixture=await call('Page.addScriptToEvaluateOnNewDocument',{source:`(()=>{
+   const mode=localStorage.getItem('qa-camera-permission')||'prompt',original=navigator.permissions.query.bind(navigator.permissions),getUserMedia=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);
+   window.qaVideoRequests=0;window.qaPermission=Object.assign(new EventTarget(),{state:['granted','delayed','cancel'].includes(mode)?'granted':mode==='denied'?'denied':'prompt'});
+   navigator.permissions.query=descriptor=>{if(descriptor.name!=='camera')return original(descriptor);if(mode==='unsupported')return Promise.reject(new TypeError('Unsupported permission'));if(['delayed','cancel','timeout'].includes(mode))return new Promise(resolve=>{window.qaResolvePermission=()=>resolve(window.qaPermission);});return Promise.resolve(window.qaPermission);};
+   navigator.mediaDevices.getUserMedia=constraints=>{if(constraints.video){window.qaVideoRequests++;if(mode==='cancel')return new Promise(resolve=>{window.qaResolveMedia=async()=>{window.qaLateStream=await getUserMedia(constraints);resolve(window.qaLateStream);};});}return getUserMedia(constraints);};
+ })()`});
+ const permissionReload=async mode=>{await evaluate(`localStorage.setItem('qa-camera-permission',${JSON.stringify(mode)})`);await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('retry')`);};
+ await permissionReload('granted');await wait(`!document.getElementById('shutter').disabled`);
+ assert.equal(await evaluate(`qaVideoRequests===1&&document.getElementById('camera-message').hidden`),true);
+ await permissionReload('granted');await wait(`!document.getElementById('shutter').disabled`);
+ assert.equal(await evaluate(`qaVideoRequests`),1);
+ await evaluate(`dispatchEvent(new PageTransitionEvent('pagehide'));dispatchEvent(new PageTransitionEvent('pageshow',{persisted:true}))`);
+ await wait(`!document.getElementById('shutter').disabled&&qaVideoRequests===2`);
+ await permissionReload('prompt');await wait(`document.getElementById('camera-status').textContent.includes('Ative')`);
+ assert.equal(await evaluate(`qaVideoRequests===0&&!document.getElementById('camera-message').hidden`),true);
+ await evaluate(`qaPermission.state='granted';qaPermission.dispatchEvent(new Event('change'))`);
+ await wait(`!document.getElementById('shutter').disabled`);await evaluate(`qaPermission.dispatchEvent(new Event('change'))`);await pause(100);
+ assert.equal(await evaluate(`qaVideoRequests`),1);
+ await permissionReload('denied');await wait(`document.getElementById('camera-status').textContent.includes('bloqueada')`);
+ assert.equal(await evaluate(`qaVideoRequests`),0);
+ await permissionReload('unsupported');await wait(`document.getElementById('camera-status').textContent.includes('Ative')`);
+ assert.equal(await evaluate(`qaVideoRequests`),0);await evaluate(`document.getElementById('retry').click()`);await wait(`!document.getElementById('shutter').disabled`);
+ assert.equal(await evaluate(`qaVideoRequests`),1);
+ await permissionReload('delayed');await wait(`typeof qaResolvePermission==='function'`);
+ await evaluate(`document.getElementById('retry').click()`);await wait(`!document.getElementById('shutter').disabled`);await evaluate(`qaResolvePermission()`);await pause(100);
+ assert.equal(await evaluate(`qaVideoRequests`),1);
+ await permissionReload('cancel');await wait(`typeof qaResolvePermission==='function'`);
+ await evaluate(`document.getElementById('retry').click();document.getElementById('retry').click();qaResolvePermission()`);
+ await pause(100);assert.equal(await evaluate(`qaVideoRequests===1&&document.getElementById('camera-status').textContent.includes('cancelada')`),true);
+ await evaluate(`qaResolveMedia()`);await wait(`qaLateStream.getTracks().every(track=>track.readyState==='ended')`);
+ assert.equal(await evaluate(`qaVideoRequests===1&&!document.getElementById('camera-message').hidden`),true);
+ await permissionReload('timeout');await wait(`document.getElementById('camera-status').textContent.includes('Ative')`);
+ assert.equal(await evaluate(`qaVideoRequests`),0);
+ await call('Page.removeScriptToEvaluateOnNewDocument',{identifier:cameraPermissionFixture.identifier});await evaluate(`localStorage.removeItem('qa-camera-permission')`);
+ await call('Page.reload');await wait(`document.readyState==='complete'&&document.getElementById('retry')`);
+ console.log('PASS camera auto-start after granted permission/reload/BFCache, permission change, denied/unknown fallback, query timeout, manual-start race and cancellation with late-stream cleanup (simulated permission states)');
+
+ // Verify audible samples in encoded files, rather than only a live audio-track flag.
+ await evaluate(`document.getElementById('retry').click()`);await wait(`!document.getElementById('shutter').disabled`);
+ await evaluate(`(async()=>{
+   window.qaAudioContext=new AudioContext();await qaAudioContext.resume();window.qaTone=qaAudioContext.createOscillator();window.qaGain=qaAudioContext.createGain();qaGain.gain.value=.2;qaTone.frequency.value=523.25;qaTone.connect(qaGain);qaTone.start();
+   window.qaRealUserMedia=navigator.mediaDevices.getUserMedia.bind(navigator.mediaDevices);window.qaRealDevices=navigator.mediaDevices.enumerateDevices.bind(navigator.mediaDevices);window.qaAudioMode='tone';
+   navigator.mediaDevices.enumerateDevices=async()=>[...await qaRealDevices(),{kind:'audioinput',deviceId:'qa-tone-microphone',label:'Microfone QA',groupId:'qa'}];
+   navigator.mediaDevices.getUserMedia=constraints=>{if(!constraints.audio||constraints.video)return qaRealUserMedia(constraints);window.qaAudioConstraints=constraints.audio;if(qaAudioMode==='missing')return Promise.resolve(new MediaStream());qaGain.disconnect();window.qaDestination=qaAudioContext.createMediaStreamDestination();if(qaAudioMode==='tone')qaGain.connect(qaDestination);return Promise.resolve(qaDestination.stream);};
+   navigator.mediaDevices.dispatchEvent(new Event('devicechange'));
+   window.qaDecodeAudio=async blob=>{const c=new AudioContext();try{const audio=await c.decodeAudioData(await blob.arrayBuffer()),samples=audio.getChannelData(0);let sum=0,peak=0;for(const value of samples){sum+=value*value;peak=Math.max(peak,Math.abs(value));}return {duration:audio.duration,channels:audio.numberOfChannels,rms:Math.sqrt(sum/samples.length),peak};}finally{await c.close();}};
+ })()`);
+ await wait(`document.getElementById('settings-form').elements.microphone.querySelector('[value="qa-tone-microphone"]')`);
+ await evaluate(`(()=>{const f=document.getElementById('settings-form');f.elements.audio.checked=true;f.elements.audio.dispatchEvent(new Event('change'));f.elements.microphone.value='qa-tone-microphone';f.elements.microphone.dispatchEvent(new Event('change'));document.querySelector('[data-mode="video"]').click();document.getElementById('shutter').click();})()`);
+ await wait(`document.getElementById('shutter').classList.contains('recording')`);await pause(1400);
+ assert.equal(await evaluate(`qaAudioConstraints.deviceId.exact==='qa-tone-microphone'&&qaAudioConstraints.channelCount.ideal===1`),true);
+ await evaluate(`document.getElementById('shutter').click()`);await wait(`!document.getElementById('shutter').disabled&&!document.getElementById('shutter').classList.contains('recording')`);
+ const audioMp4=await evaluate(`(async()=>{const [item]=await CameraStore.list();window.qaAudioCaptureId=item.id;const original=await CameraStore.get(item.id);return {type:original.blob.type,hasAudio:item.hasAudio,...await qaDecodeAudio(original.blob)};})()`);
+ assert(audioMp4.type.startsWith('video/mp4'),JSON.stringify(audioMp4));assert(audioMp4.hasAudio&&audioMp4.channels>0&&audioMp4.duration>1&&audioMp4.rms>.01,JSON.stringify(audioMp4));
+ await evaluate(`document.getElementById('viewer-video').muted=true;document.getElementById('viewer-video').volume=0;document.getElementById('gallery-open').click();document.querySelector('[data-id="'+qaAudioCaptureId+'"]').click()`);
+ await wait(`document.getElementById('viewer-video').readyState>=2`);
+ assert.equal(await evaluate(`!document.getElementById('viewer-video').muted&&document.getElementById('viewer-video').volume===1`),true);
+ await evaluate(`HTMLAnchorElement.prototype.click=function(){window.downloadURL=this.href;window.downloadName=this.download;};document.getElementById('download').click()`);
+ await wait(`window.downloadName&&window.downloadName.endsWith('.mp4')`);
+ assert.equal(await evaluate(`fetch(downloadURL).then(r=>r.blob()).then(qaDecodeAudio).then(a=>a.rms>.01&&a.channels>0)`),true);
+ await evaluate(`document.getElementById('gallery-dialog').close();window.qaRealTypeSupport=MediaRecorder.isTypeSupported;MediaRecorder.isTypeSupported=type=>type.startsWith('video/webm')&&qaRealTypeSupport(type);document.getElementById('shutter').click()`);
+ await wait(`document.getElementById('shutter').classList.contains('recording')`);await pause(1200);await evaluate(`document.getElementById('shutter').click()`);await wait(`!document.getElementById('shutter').disabled&&!document.getElementById('shutter').classList.contains('recording')`);
+ assert.equal(await evaluate(`(async()=>{const [i]=await CameraStore.list(),r=await CameraStore.get(i.id);return r.blob.type.startsWith('video/webm')&&i.hasAudio&&(await qaDecodeAudio(r.blob)).rms>.01;})()`),true);
+ await evaluate(`MediaRecorder.isTypeSupported=qaRealTypeSupport;window.qaAudioMode='silent';document.querySelector('[data-cinema="meters"]').checked=false;document.querySelector('[data-cinema="meters"]').dispatchEvent(new Event('change'));document.getElementById('shutter').click()`);
+ await wait(`document.getElementById('shutter').classList.contains('recording')`);
+ await wait(`document.getElementById('record-audio-state').textContent.includes('Nenhum sinal')`);
+ assert.equal(await evaluate(`document.getElementById('notice').textContent.includes('Nenhum sinal')`),true);
+ await evaluate(`qaGain.connect(qaDestination)`);await wait(`document.getElementById('record-audio-state').textContent.includes('Microfone gravando')`);
+ await evaluate(`document.getElementById('shutter').click()`);await wait(`!document.getElementById('shutter').disabled&&!document.getElementById('shutter').classList.contains('recording')`);
+ const beforeMissingAudio=await evaluate(`CameraStore.list().then(x=>x.length)`);
+ await evaluate(`window.qaAudioMode='missing';document.getElementById('shutter').click()`);
+ await wait(`document.getElementById('notice').textContent.includes('faixa de')&&!document.getElementById('shutter').disabled`);
+ assert.equal(await evaluate(`CameraStore.list().then(x=>x.length)`),beforeMissingAudio);
+ assert.equal(await evaluate(`!document.getElementById('shutter').classList.contains('recording')`),true);
+ await evaluate(`(async()=>{navigator.mediaDevices.getUserMedia=qaRealUserMedia;navigator.mediaDevices.enumerateDevices=qaRealDevices;qaTone.stop();await qaAudioContext.close();const f=document.getElementById('settings-form');f.elements.microphone.value='default';f.elements.microphone.dispatchEvent(new Event('change'));})()`);
+ console.log('PASS encoded MP4/AAC and WebM/Opus contain nonzero decoded audio, downloaded audio, unmuted gallery playback, selected input, silence warning/recovery and rejection of missing audio tracks');
+
+
+
+
 
 
 
@@ -489,14 +612,14 @@ try {
  await evaluate(`Promise.all([document.fonts.load('900 16px "Font Awesome 6 Free"','\uf030'),document.fonts.load('400 16px "Font Awesome 6 Free"','\uf004')])`);
  assert.equal(await evaluate(`document.querySelector('#settings-open > i').classList.contains('fa-gear') && document.fonts.check('900 16px "Font Awesome 6 Free"') && document.fonts.check('400 16px "Font Awesome 6 Free"')`),true);
  const manifest=await call('Page.getAppManifest');assert.deepEqual(manifest.errors,[]);
- assert.equal(await evaluate(`fetch('manifest.webmanifest').then(r=>r.json()).then(m=>m.display)`),'standalone');
+ assert.equal(await evaluate(`fetch('manifest.webmanifest').then(r=>r.json()).then(m=>m.display)`),'fullscreen');
  assert.equal(await evaluate(`fetch('icons/icon-512.png').then(r=>r.blob()).then(createImageBitmap).then(i=>{const w=i.width;i.close();return w})`),512);
  await call('Network.enable');await call('Network.emulateNetworkConditions',{offline:true,latency:0,downloadThroughput:0,uploadThroughput:0});
  await call('Page.reload');await wait(`document.readyState==='complete' && document.getElementById('retry') && !document.getElementById('gallery-loading').textContent`);
  assert.equal(await evaluate(`typeof CameraStore.list`),'function');
  assert.equal(await evaluate(`typeof MobileRanges.refresh==='function' && document.querySelectorAll('.mobile-range').length===document.querySelectorAll('input[type="range"]').length`),true);
  assert.equal(await evaluate(`CameraLooks.presets.length`),21);
- assert.equal(await evaluate(`typeof CameraLayout.init==='function' && typeof CameraCollection.init==='function' && typeof CameraCinema.init==='function' && document.querySelector('[data-cinema="previewOnly"]').checked`),true);
+ assert.equal(await evaluate(`typeof CameraFullscreen.init==='function' && typeof CameraLayout.init==='function' && typeof CameraCollection.init==='function' && typeof CameraCinema.init==='function' && document.querySelector('[data-cinema="previewOnly"]').checked`),true);
  await evaluate(`Promise.all([document.fonts.load('900 16px "Font Awesome 6 Free"','\uf030'),document.fonts.load('400 16px "Font Awesome 6 Free"','\uf004')])`);
  assert.equal(await evaluate(`document.fonts.check('900 16px "Font Awesome 6 Free"') && document.fonts.check('400 16px "Font Awesome 6 Free"')`),true);
  assert.equal(errors.length,0,JSON.stringify(errors));

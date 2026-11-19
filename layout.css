@@ -1,6 +1,15 @@
 /* Shared presentation tokens and responsive layout, loaded after feature styles. */
 :root { --accent: #ff963e; --accent-text: #ffb778; --danger: #ff969d; --favorite: #f6cf77; --panel: #19191d; --border: #ffffff1c; --muted: #b2b2bc; --side-controls-width: 208px; font-family: system-ui, -apple-system, 'Segoe UI', sans-serif; }
 button, select { min-height: 44px; }
+/* Block pull-to-refresh and scroll chaining while retaining internal scrolling. */
+html, body { overscroll-behavior-y: none; }
+dialog, .bottom-controls, .filters-panel, #monitor-content { overscroll-behavior-y: contain; }
+/* Prevent accidental selection while tapping or holding interface controls. */
+* { -webkit-user-select: none; user-select: none; }
+input:not([type="range"]):not([type="checkbox"]):not([type="radio"]),
+textarea,
+[contenteditable]:not([contenteditable="false"]),
+[contenteditable]:not([contenteditable="false"]) * { -webkit-user-select: text; user-select: text; }
 button { min-width: 44px; touch-action: manipulation; }
 button:disabled { opacity: .45; }
 button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-visible { outline: 2px solid var(--accent); outline-offset: 3px; }
@@ -30,6 +39,8 @@ button:focus-visible, summary:focus-visible, select:focus-visible, input:focus-v
 .modes button[aria-pressed="true"] { color: var(--accent-text); }
 .modes button[aria-pressed="true"]::after { width: 5px; height: 5px; left: calc(50% - 2.5px); background: var(--accent); }
 .record-time { font-size: 14px; margin-bottom: 4px; color: #ff8992; }
+#record-audio-state { display: block; margin: 4px 0 8px; font-size: 12px; line-height: 1.5; color: #d5efb3; }
+#record-audio-state.audio-warning { color: #ffcf8c; }
 .shutter.video span { background: #ff5367; }
 #record-recovery-state { font-size: 11px; line-height: 1.5; margin: 4px 0 8px; }
 .pro-controls { font-size: 12px; }
@@ -83,6 +94,7 @@ dialog:not(#gallery-dialog) > .dialog-header { position: sticky; top: 0; z-index
 .settings-group[open] > summary { color: var(--accent-text); }
 .settings-group > .settings-section { padding: 4px 15px 18px; gap: 15px; }
 .settings-section > label { font-size: 13px; line-height: 1.5; }
+.settings-section select[name="microphone"] { display: block; width: 100%; }
 .settings-section .toggle-row { min-height: 44px; padding-right: 54px; }
 .settings-section .toggle-track { position: absolute; right: 0; }
 .settings-section .toggle-row input { min-width: 44px; width: 44px; height: 44px; top: 50%; transform: translateY(-50%); }

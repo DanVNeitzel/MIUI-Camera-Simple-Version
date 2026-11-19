@@ -5,6 +5,7 @@
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
   <meta name="theme-color" content="#080808">
   <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
   <link rel="manifest" href="manifest.webmanifest">
   <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=app-icon-19">
   <link rel="icon" type="image/svg+xml" sizes="any" href="icons/app-icon.svg?v=app-icon-19">
@@ -14,16 +15,17 @@
   <link rel="stylesheet" href="vendor/fontawesome/css/solid.min.css">
   <link rel="stylesheet" href="vendor/fontawesome/css/regular.min.css">
   <link rel="stylesheet" href="style.css?v=layout-18">
-  <script src="storage.js?v=layout-18" defer></script>
+  <script src="storage.js?v=audio-24" defer></script>
   <script src="looks.js?v=cinema-looks-12" defer></script>
   <script src="ranges.js?v=touch-focus-6" defer></script>
   <link rel="stylesheet" href="cinema.css?v=layout-18">
-  <script src="cinema.js?v=layout-18" defer></script>
+  <script src="cinema.js?v=audio-24" defer></script>
   <link rel="stylesheet" href="collection.css?v=layout-18">
   <script src="collection.js?v=layout-18" defer></script>
-  <link rel="stylesheet" href="layout.css?v=layout-18">
+  <link rel="stylesheet" href="layout.css?v=audio-24">
   <script src="layout.js?v=layout-18" defer></script>
-  <script src="script.js?v=layout-18" defer></script>
+  <script src="fullscreen.js?v=fullscreen-21" defer></script>
+  <script src="script.js?v=audio-24" defer></script>
 </head>
 <body>
   <main class="camera-app" tabindex="-1">
@@ -46,12 +48,13 @@
 
     <section id="camera-message" class="camera-message" aria-live="polite">
       <h1>Sua câmera, sem complicação.</h1>
-      <p id="camera-status">Permita o acesso à câmera para começar.</p>
+      <p id="camera-status">Verificando o acesso à câmera…</p>
       <button id="retry" class="primary"><i class="fa-solid fa-camera" aria-hidden="true"></i><span class="button-label">Ativar câmera</span></button>
     </section>
 
     <footer class="bottom-controls">
       <output id="record-time" class="record-time" hidden><i class="fa-solid fa-circle" aria-hidden="true"></i><span>00:00</span></output>
+      <output id="record-audio-state" hidden></output>
       <output id="record-recovery-state" hidden></output>
       <section id="filters-panel" class="filters-panel" aria-labelledby="filters-title" hidden>
         <div class="filters-header"><h2 id="filters-title">Filtros <span id="filter-current">Nenhum</span></h2><button id="filters-close" aria-label="Fechar filtros"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
@@ -108,6 +111,8 @@
       <section class="settings-section"><h3>VÍDEO</h3>
         <label>Resolução<select name="resolution"><option value="720">720p</option><option value="1080">1080p</option><option value="2160">4K</option></select></label>
         <label class="toggle-row">Gravar com microfone<input name="audio" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span></label>
+        <label>Entrada do microfone<select name="microphone"><option value="default">Padrão do sistema</option></select></label>
+        <p class="muted">Se o nível continuar em −60 dBFS enquanto você fala, tente outra entrada. Confira também o acesso ao microfone no Android e a permissão deste site no Chrome.</p>
       </section>
       <section class="settings-section"><h3>COMPOSIÇÃO</h3>
         <label>Grade<select name="gridType"><option value="none">Nenhuma</option><option value="thirds">Terços</option><option value="square">Quadrado</option><option value="both">Ambas</option></select></label>

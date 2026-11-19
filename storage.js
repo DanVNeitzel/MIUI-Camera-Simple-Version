@@ -34,7 +34,7 @@ window.CameraStore = (() => {
   function metadata(item) {
     return { id: item.id, kind: item.kind, created: item.created, favorite: !!item.favorite, deletedAt: item.deletedAt || null, type: item.type || item.blob?.type || '', size: item.size ?? item.blob?.size ?? 0, width: item.width || 0, height: item.height || 0, duration: Number.isFinite(item.duration) ? item.duration : null,
       project: typeof item.project === 'string' ? item.project.slice(0, 80) : '', scene: typeof item.scene === 'string' ? item.scene.slice(0, 80) : '', take: /^\d{1,6}$/.test(item.take) && Number(item.take) > 0 ? String(Number(item.take)) : '', goodTake: item.goodTake === true,
-      albumIds: Array.isArray(item.albumIds) ? [...new Set(item.albumIds.filter(id => typeof id === 'string' && id.length <= 80))].slice(0, 50) : [] };
+      albumIds: Array.isArray(item.albumIds) ? [...new Set(item.albumIds.filter(id => typeof id === 'string' && id.length <= 80))].slice(0, 50) : [], hasAudio: typeof item.hasAudio === 'boolean' ? item.hasAudio : null };
   }
   async function atomic(callback, stores = ['media', 'catalog', 'thumbnails']) {
     const db = await open();

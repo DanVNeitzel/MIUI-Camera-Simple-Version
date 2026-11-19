@@ -8,18 +8,22 @@
   const TIMER_DELAYS = [0, 3, 5, 7, 10];
   const looks = window.CameraLooks;
   const filters = Object.fromEntries(looks.presets.map((preset) => [preset.id, preset.css]));
-  const defaults = { quality: '0.92', format: 'image/jpeg', resolution: '1080', filter: 'none', filterIntensity: '1', audio: false, grid: true, gridType: 'thirds', camera: 'environment', keyboard: false };
+  const defaults = { quality: '0.92', format: 'image/jpeg', resolution: '1080', filter: 'none', filterIntensity: '1', audio: false, microphone: 'default', grid: true, gridType: 'thirds', camera: 'environment', keyboard: false };
   const allowed = { quality: ['0.6', '0.78', '0.92', '1'], format: ['image/jpeg', 'image/png', 'image/webp'], resolution: ['720', '1080', '2160'], filter: Object.keys(filters), filterIntensity: Array.from({ length: 21 }, (_, index) => String(index / 20)), gridType: ['none', 'thirds', 'square', 'both'], camera: ['environment', 'user'] };
   const state = { stream: null, ready: false, busy: false, opening: false, disposed: false, request: 0, facing: 'environment', device: '', cameras: [], zoom: 1, mode: 'photo', timer: 0, countdown: null, torch: false, recorder: null, media: [], selected: null, frame: 0, lastFrame: 0, recordTimer: null, noticeTimer: null };
   let settings = { ...defaults };
   let cinema;
   let collection;
+  let cameraPermissionStatus, cameraPermissionChange;
   const recordingCanvas = document.createElement('canvas');
   const gallery = { selecting: false, checked: new Set(), favoritesOnly: false, filter: 'all', menuIds: [], busy: false, editor: null, limit: 36, thumbnailURLs: new Map(), viewerToken: 0, undoIds: [] };
   let galleryObserver;
   const store = window.CameraStore;
   const focusSupportByTrack = new WeakMap();
   let lookCategory = 'all';
+  function allowedSetting(key, value) {
+    return allowed[key]?.includes(value) || (typeof defaults[key] === 'boolean' && typeof value === 'boolean') || (key === 'microphone' && typeof value === 'string' && value.length > 0 && value.length <= 512);
+  }
   for (const [select, editor] of [[$('settings-form').elements.namedItem('filter'), false], [$('editor-filter'), true]]) {
     select.replaceChildren();
     for (const category of looks.categories.filter((item) => item.id !== 'all')) {
@@ -45,10 +49,11 @@
   try {
     const stored = JSON.parse(localStorage.getItem('miui-camera-simple-settings') || '{}');
     for (const key of Object.keys(defaults)) {
-      if (allowed[key]?.includes(stored?.[key]) || (typeof defaults[key] === 'boolean' && typeof stored?.[key] === 'boolean')) settings[key] = stored[key];
+      if (allowedSetting(key, stored?.[key])) settings[key] = stored[key];
     }
   } catch { /* Invalid or inaccessible storage uses defaults. */ }
   state.facing = settings.camera;
+  if (settings.microphone !== 'default') $('settings-form').elements.microphone.add(new Option('Microfone salvo', settings.microphone));
 
   function notice(message) {
     $('notice').textContent = message;
@@ -220,7 +225,10 @@
       if (token !== gallery.viewerToken || state.selected !== id) return;
       gallery.viewerURL = URL.createObjectURL(record.blob);
       if (item.kind === 'photo') $('viewer-image').src = gallery.viewerURL;
-      else $('viewer-video').src = gallery.viewerURL;
+      else {
+        const player = $('viewer-video'); player.defaultMuted = false; player.muted = false; player.volume = 1;
+        player.src = gallery.viewerURL;
+      }
       $('save-state').textContent = item.deletedAt ? item.favorite ? 'Favorito protegido na lixeira. Restaure ou remova dos favoritos para excluir.' : `Na lixeira até ${new Date(item.deletedAt + store.retention).toLocaleDateString('pt-BR')}` : item.saved ? 'Salvo neste navegador. Exporte para manter uma cópia.' : 'Somente na memória: baixe antes de fechar a página.';
     } catch (error) { if (token === gallery.viewerToken) $('save-state').textContent = error.message; }
     $('viewer-back').focus();
@@ -557,6 +565,7 @@
       add('Criada em', new Date(item.created).toLocaleString('pt-BR')); add('Favorito', item.favorite ? 'Sim' : 'Não'); add('Salvamento', item.saved ? 'Neste navegador' : 'Somente na memória');
       add('Projeto', item.project || '—'); add('Cena', item.scene || '—'); add('Tomada', item.take || '—'); add('Melhor tomada', item.goodTake ? 'Sim' : 'Não');
       add('Álbuns', collection?.albumNames(item.albumIds).join(', ') || 'Sem álbum');
+      if (item.kind === 'video') add('Microfone na gravação', item.hasAudio == null ? 'Não informado neste arquivo antigo' : item.hasAudio ? 'Faixa de áudio incluída' : 'Desativado');
       if (item.deletedAt) add('Lixeira até', new Date(item.deletedAt + store.retention).toLocaleDateString('pt-BR'));
       try {
         const dimensions = await mediaDimensions(item);
@@ -707,7 +716,7 @@
     $('actual-resolution').textContent = track ? `Solicitado: ${format === 2160 ? '4K' : format + 'p'}. Sensor: ${actual.width || video.videoWidth} × ${actual.height || video.videoHeight}. Captura: ${canvas.width} × ${canvas.height} px (recorte e zoom digitais).` : 'Ative a câmera para consultar a resolução efetiva.';
     const recording = !!window.MediaRecorder && typeof canvas.captureStream === 'function';
     const mic = !!navigator.mediaDevices?.getUserMedia;
-    const audio = !mic ? 'API indisponível' : state.recorder ? state.recordingHasAudio ? 'ativo nesta gravação' : 'vídeo sem áudio' : !settings.audio ? 'desativado' : state.audioStatus || (state.microphoneAvailable === false ? 'não detectado; confirme as permissões do sistema' : 'opcional; permissão solicitada ao gravar');
+    const audio = !mic ? 'API indisponível' : state.recorder ? state.recordingAudioProblem || (state.recordingHasAudio ? 'ativo nesta gravação' : 'vídeo sem áudio') : !settings.audio ? 'desativado' : state.audioStatus || (state.microphoneAvailable === false ? 'não detectado; confirme as permissões do sistema' : 'opcional; permissão solicitada ao gravar');
     const modes = focusModes(track), support = track ? focusSupport(track) : null;
     const auto = modes.some((mode) => ['continuous', 'single-shot'].includes(mode) && !support?.rejectedModes.has(mode));
     const focus = state.focusLocked ? 'travado' : auto ? support?.lockUnavailable ? 'automático; bloqueio não disponível' : 'automático; toque ou segure para travar' : modes.includes('manual') && caps.focusDistance && !support?.manualRejected ? 'manual disponível no modo PRO' : 'ajuste padrão da câmera; toque disponível para iluminação';
@@ -739,6 +748,7 @@
       button.setAttribute('aria-pressed', String(button.dataset.device === state.device));
     });
     $('settings-open').disabled = locked;
+    $('settings-form').elements.microphone.disabled = locked;
     $('timer').disabled = state.busy || state.opening || recording || state.mode === 'video';
     $('torch').disabled = !state.ready || locked || !focusCapabilities(state.stream?.getVideoTracks()[0]).torch;
     $('torch').setAttribute('aria-label', $('torch').disabled ? 'Lanterna indisponível durante esta operação' : `Lanterna ${state.torch ? 'ligada' : 'desligada'}`);
@@ -756,6 +766,9 @@
     });
     $('pro-controls').hidden = state.mode !== 'pro';
     $('record-time').hidden = !recording;
+    $('record-audio-state').hidden = state.mode !== 'video' && !recording;
+    $('record-audio-state').textContent = recording ? state.recordingAudioProblem || (state.recordingHasAudio ? `Microfone gravando${state.audioInputName ? ` · ${state.audioInputName}` : ''}` : 'Vídeo sem microfone') : settings.audio ? 'Microfone ativado para a próxima gravação' : 'Microfone desligado · ative nas configurações para gravar som';
+    $('record-audio-state').classList.toggle('audio-warning', (recording && !!state.recordingAudioProblem) || !settings.audio);
     $('mode-hint').textContent = { photo: 'Fotos salvas neste navegador', video: `Vídeo ${settings.audio ? 'com microfone' : 'sem áudio'} · filtros e zoom incluídos`, night: 'Noturno digital · brilho reforçado', portrait: 'Retrato digital · vinheta nas bordas', pro: 'PRO digital · brilho e cor, sem controle do sensor' }[state.mode];
     $('camera-message').hidden = state.ready;
     $('retry').disabled = false;
@@ -1002,8 +1015,42 @@
     syncUI();
   }
 
+  // Querying permission does not request it. Only resume automatically when
+  // the browser confirms a current grant; never infer consent from localStorage.
+  async function startAuthorizedCamera() {
+    const request = state.request;
+    const idle = () => request === state.request && !state.ready && !state.opening && !state.busy && !state.recorder && state.countdown === null && !state.disposed && !document.hidden;
+    if (!idle()) return;
+    const hint = permission => {
+      if (!idle()) return;
+      $('camera-status').textContent = permission === 'denied'
+        ? 'A câmera está bloqueada. Nas permissões deste site no navegador, altere Câmera para Permitir e tente novamente.'
+        : 'Ative a câmera para começar. A autorização é gerenciada pelo navegador.';
+    };
+    if (!window.isSecureContext || !navigator.mediaDevices?.getUserMedia || !navigator.permissions?.query) { hint('unknown'); return; }
+    let timeout;
+    try {
+      const status = await Promise.race([
+        navigator.permissions.query({ name: 'camera' }),
+        new Promise((_, reject) => { timeout = setTimeout(() => reject(new Error('Permission query timed out')), 1500); })
+      ]);
+      if (state.disposed || request !== state.request) return;
+      cameraPermissionStatus?.removeEventListener?.('change', cameraPermissionChange);
+      cameraPermissionStatus = status;
+      state.cameraPermission = status.state;
+      cameraPermissionChange = () => {
+        state.cameraPermission = status.state;
+        if (!idle()) return;
+        if (status.state === 'granted') openCamera(); else hint(status.state);
+      };
+      status.addEventListener?.('change', cameraPermissionChange);
+      if (idle() && status.state === 'granted') openCamera(); else hint(status.state);
+    } catch { hint('unknown'); }
+    finally { clearTimeout(timeout); }
+  }
+
   async function openCamera(device = '') {
-    if (state.busy || state.recorder || state.countdown !== null || state.disposed) return;
+    if (state.opening || state.busy || state.recorder || state.countdown !== null || state.disposed) return;
     const token = ++state.request;
     state.cameraAbort?.abort();
     const controller = new AbortController();
@@ -1015,7 +1062,7 @@
     stopTracks(state.stream);
     state.stream = null;
     video.srcObject = null;
-    $('camera-status').textContent = 'Autorize a câmera no aviso do navegador. Se o aviso não aparecer, verifique o ícone de permissões ao lado do endereço.';
+    $('camera-status').textContent = state.cameraPermission === 'granted' ? 'Iniciando a câmera…' : 'Abrindo a câmera. Se o navegador solicitar acesso, escolha Permitir. Quando disponível, permita o acesso contínuo para este site.';
     syncUI();
     let stream;
     try {
@@ -1048,6 +1095,7 @@
       $('zoom').value = '1';
       updateZoom();
       state.ready = true;
+      state.cameraPermission = 'granted';
       $('actual-resolution').textContent = `Sensor: ${actual.width || video.videoWidth} × ${actual.height || video.videoHeight}. A captura usa o recorte visível e zoom digital.`;
       track.addEventListener('ended', () => {
         if (state.stream !== stream || state.disposed) return;
@@ -1080,6 +1128,11 @@
       if (state.disposed) return;
       state.cameras = devices.filter((device) => device.kind === 'videoinput');
       state.microphoneAvailable = devices.some((device) => device.kind === 'audioinput');
+      const microphones = devices.filter(device => device.kind === 'audioinput' && device.deviceId && device.deviceId !== 'default');
+      const input = $('settings-form').elements.microphone;
+      input.replaceChildren(new Option('Padrão do sistema', 'default'), ...microphones.map((device, index) => new Option(device.label || `Microfone ${index + 1}`, device.deviceId)));
+      if (settings.microphone !== 'default' && !microphones.some(device => device.deviceId === settings.microphone)) input.add(new Option('Microfone salvo (indisponível)', settings.microphone));
+      input.value = settings.microphone;
       $('lens').replaceChildren(...state.cameras.map((device, index) => new Option(device.label || `Câmera ${index + 1}`, device.deviceId)));
       $('lens').value = state.device;
       $('lens-buttons').replaceChildren(...state.cameras.map((device, index) => {
@@ -1207,26 +1260,41 @@
     let microphone, output, draft, heartbeat;
     let pendingChunks = Promise.resolve(), chunkIndex = 0;
     state.draftEnabled = false;
+    state.recordingHasAudio = false; state.recordingAudioProblem = ''; state.audioSignalNotice = false; state.audioSignalLast = performance.now();
     try {
       if (!window.MediaRecorder || !canvas.captureStream) throw new Error('Gravação não suportada neste navegador.');
       if (settings.audio) {
         state.audioStatus = 'aguardando permissão'; syncUI();
         state.recordAbort = new AbortController();
-        microphone = await cameraStep(navigator.mediaDevices.getUserMedia({ audio: true, video: false }), state.recordAbort.signal, 20000, 'O microfone não respondeu. Verifique as permissões ou desative o áudio.', stopTracks);
+        microphone = await cameraStep(navigator.mediaDevices.getUserMedia({ audio: { ...(settings.microphone !== 'default' ? { deviceId: { exact: settings.microphone } } : {}), channelCount: { ideal: 1 }, sampleRate: { ideal: 48000 }, echoCancellation: true, noiseSuppression: true, autoGainControl: true }, video: false }), state.recordAbort.signal, 20000, 'O microfone não respondeu. Verifique as permissões ou desative o áudio.', stopTracks);
         state.audioStatus = 'autorizado'; state.recordAbort = null;
       }
+      const audioTrack = microphone?.getAudioTracks().find(track => track.readyState === 'live');
+      if (settings.audio && !audioTrack) throw new Error('O navegador não forneceu uma faixa de áudio. Confira a permissão e o acesso ao microfone nas configurações do Android.');
+      if (audioTrack) audioTrack.enabled = true;
+      state.audioInputName = audioTrack?.label || '';
+      if (audioTrack) detectCameras();
       if (state.disposed || !state.ready) { stopTracks(microphone); return; }
       drawFrame();
       const target = cinema?.options.previewOnly ? recordingCanvas : canvas;
       if (target !== canvas) drawFrame(target, false);
       output = target.captureStream(Number(cinema?.options.fps) || 30);
-      microphone?.getAudioTracks().forEach((track) => output.addTrack(track));
-      const mimeType = ['video/webm;codecs=vp8,opus', 'video/webm', 'video/mp4'].find((type) => MediaRecorder.isTypeSupported(type));
-      const recorder = new MediaRecorder(output, mimeType ? { mimeType } : undefined);
+      if (audioTrack) output.addTrack(audioTrack);
+      const types = audioTrack
+        ? ['video/mp4;codecs=avc1,mp4a.40.2', 'video/mp4', 'video/webm;codecs=vp8,opus', 'video/webm']
+        : ['video/mp4;codecs=avc1', 'video/mp4', 'video/webm;codecs=vp8', 'video/webm'];
+      let recorder, lastError;
+      for (const mimeType of [...types.filter(type => MediaRecorder.isTypeSupported(type)), null]) {
+        try { recorder = new MediaRecorder(output, { ...(mimeType ? { mimeType } : {}), ...(audioTrack ? { audioBitsPerSecond: 128000 } : {}) }); break; }
+        catch (error) { lastError = error; }
+      }
+      if (!recorder) throw lastError || new Error('Não há um formato de gravação compatível.');
+      if (settings.audio && !recorder.stream.getAudioTracks().some(track => track.readyState === 'live' && track.enabled)) throw new Error('Não foi possível incluir o microfone na gravação.');
       const chunks = [];
       const captureInfo = cinema?.slate();
+      captureInfo.hasAudio = !!audioTrack;
       try {
-        draft = await store.createRecording(captureInfo, recorder.mimeType || mimeType || 'video/webm');
+        draft = await store.createRecording(captureInfo, recorder.mimeType || 'video/webm');
         captureInfo.recordingId = draft.id; captureInfo.created = draft.created; state.draftEnabled = true;
         heartbeat = setInterval(() => { pendingChunks = pendingChunks.then(() => store.touchRecording(draft.id)).catch(() => {}); }, 5000);
       } catch { notice('Não foi possível ativar a recuperação local. A gravação continuará na memória.'); }
@@ -1251,6 +1319,7 @@
         stopTracks(microphone);
         cinema?.stopAudio();
         state.recorder = null;
+        state.recordingAudioTrack = null;
         state.busy = true;
         syncUI();
         try {
@@ -1262,9 +1331,19 @@
         } catch (error) { notice(`Não foi possível salvar o vídeo: ${error.message}`); }
         finally { if (draft) { await store.touchRecording(draft.id, 'interrupted').catch(() => {}); store.releaseRecording(draft.id); } state.busy = false; syncUI(); }
       };
+      if (settings.audio && (audioTrack.readyState !== 'live' || !audioTrack.enabled)) throw new Error('O microfone foi interrompido antes de iniciar a gravação.');
       recorder.start(1000);
       state.recorder = recorder;
-      state.recordingHasAudio = !!microphone?.getAudioTracks().some((track) => track.readyState === 'live');
+      state.audioSignalLast = performance.now();
+      state.recordingHasAudio = !!audioTrack;
+      state.recordingAudioTrack = audioTrack;
+      const inputChanged = () => {
+        if (state.recorder !== recorder) return;
+        state.recordingAudioProblem = audioTrack.readyState !== 'live' ? 'Microfone interrompido · o vídeo continua sem novo áudio' : audioTrack.muted || !audioTrack.enabled ? 'Microfone sem sinal · confira o acesso ao microfone no Android' : '';
+        if (state.recordingAudioProblem) notice(state.recordingAudioProblem);
+        syncUI();
+      };
+      if (audioTrack) { for (const event of ['mute', 'unmute', 'ended']) audioTrack.addEventListener(event, inputChanged); inputChanged(); }
       const started = performance.now();
       iconLabel($('record-time'), 'circle', '00:00');
       state.recordTimer = setInterval(() => {
@@ -1275,9 +1354,10 @@
       clearInterval(heartbeat);
       if (draft) { await pendingChunks; await store.touchRecording(draft.id, 'interrupted').catch(() => {}); store.releaseRecording(draft.id); await store.discardRecording(draft.id).catch(() => {}); }
       stopTracks(output); stopTracks(microphone);
+      state.recordingAudioTrack = null;
       cinema?.stopAudio();
       if (settings.audio) state.audioStatus = error.name === 'NotAllowedError' ? 'permissão negada' : 'falha ao iniciar; verifique dispositivo e permissões';
-      notice(error.name === 'NotAllowedError' ? 'Permita o microfone ou desative o áudio nas configurações.' : `Não foi possível gravar: ${error.message}`);
+      notice(error.name === 'NotAllowedError' ? 'Permita o microfone no Chrome e confira o acesso ao microfone nas configurações do Android.' : ['NotFoundError', 'OverconstrainedError'].includes(error.name) && settings.audio ? 'O microfone selecionado não está disponível. Escolha Padrão do sistema ou outra entrada em Configurações → Vídeo.' : `Não foi possível gravar: ${error.message}`);
     } finally { state.busy = false; syncUI(); }
   }
 
@@ -1390,11 +1470,11 @@
     });
   }
 
-  for (const key of ['quality', 'format', 'resolution', 'filter', 'filterIntensity', 'audio', 'camera', 'keyboard', 'gridType']) {
+  for (const key of ['quality', 'format', 'resolution', 'filter', 'filterIntensity', 'audio', 'microphone', 'camera', 'keyboard', 'gridType']) {
     const input = $('settings-form').elements.namedItem(key);
     if (input.type === 'checkbox') input.checked = settings[key];
     else input.value = key === 'gridType' && !settings.grid ? 'none' : settings[key];
-    if (input.tagName === 'SELECT') {
+    if (input.tagName === 'SELECT' && key !== 'microphone') {
       const group = document.createElement('div');
       group.className = key === 'filter' ? 'filter-options' : 'setting-options';
       group.setAttribute('role', 'group');
@@ -1505,8 +1585,6 @@
   }, true);
   $('gallery-dialog').addEventListener('close', () => {
     closeViewer(); gallery.checked.clear(); gallery.selecting = false; syncSelection();
-    if (gallery.ownsFullscreen && document.fullscreenElement) document.exitFullscreen().catch(() => {});
-    gallery.ownsFullscreen = false;
   });
   $('viewer-back').addEventListener('click', closeViewer);
   $('download').addEventListener('click', () => downloadItems(state.media.filter((item) => item.id === state.selected)));
@@ -1542,11 +1620,7 @@
   $('backup-export').addEventListener('click', exportBackup);
   $('backup-file').addEventListener('change', () => importBackup($('backup-file').files[0]));
   $('gallery-fullscreen').addEventListener('click', async () => {
-    try {
-      if (document.fullscreenElement) { await document.exitFullscreen(); gallery.ownsFullscreen = false; }
-      else if (document.documentElement.requestFullscreen) { await document.documentElement.requestFullscreen(); gallery.ownsFullscreen = true; }
-      else notice('A galeria já ocupa toda a página. Este navegador não permite ocultar suas barras.');
-    } catch { notice('A galeria ocupa toda a página; o navegador não permitiu ocultar suas barras.'); }
+    await window.CameraFullscreen.toggle();
   });
   for (const id of ['editor-brightness', 'editor-contrast', 'editor-saturation', 'editor-filter', 'editor-filter-intensity', 'crop-width', 'crop-height', 'crop-x', 'crop-y']) $(id).addEventListener('input', () => {
     $('editor-filter-intensity').disabled = !('filter' in ctx) || $('editor-filter').value === 'none'; drawEditor();
@@ -1595,6 +1669,7 @@
     state.request++;
     state.cameraAbort?.abort();
     state.recordAbort?.abort();
+    cameraPermissionStatus?.removeEventListener?.('change', cameraPermissionChange);
     resetAutomaticIllumination();
     state.focusAbort?.abort(); clearTimeout(focusHoldTimer); clearTimeout(manualFocusTimer); clearTimeout(state.focusFeedbackTimer);
     cancelCountdown();
@@ -1614,6 +1689,7 @@
     state.disposed = false; state.opening = false; state.busy = false;
     closeViewer(); updateThumbnail(); syncUI();
     state.frame = requestAnimationFrame(renderLoop);
+    startAuthorizedCamera();
   });
   navigator.mediaDevices?.addEventListener?.('devicechange', detectCameras);
   if (!('filter' in ctx)) {
@@ -1626,12 +1702,23 @@
     updateMedia: items => store.updateMany(items),
     ready: () => state.ready, recording: () => !!state.recorder,
     locked: () => state.busy || state.opening || state.countdown !== null || !!state.recorder,
+    audioLevel: peak => {
+      if (!state.recorder || !state.recordingHasAudio) return;
+      const now = performance.now(), track = state.recordingAudioTrack;
+      if (peak > .0001) {
+        state.audioSignalLast = now;
+        if (state.recordingAudioProblem === 'Nenhum sinal de áudio detectado') { state.recordingAudioProblem = ''; syncUI(); }
+      } else if (now - state.audioSignalLast > 5000 && track?.readyState === 'live' && !track.muted && track.enabled) {
+        if (!state.recordingAudioProblem) { state.recordingAudioProblem = 'Nenhum sinal de áudio detectado'; syncUI(); }
+        if (!state.audioSignalNotice) { state.audioSignalNotice = true; notice('Nenhum sinal de áudio detectado. Fale perto do microfone e confira o acesso ao microfone no Android.'); }
+      }
+    },
     stats: () => ({ fps: focusSettings(state.stream?.getVideoTracks()[0]).frameRate, format: state.recorder?.mimeType, bytes: state.recordBytes, seconds: state.recorder ? (performance.now() - state.recordStarted) / 1000 : 0, hasAudio: state.recordingHasAudio }),
     snapshot: () => ({ settings: { ...settings }, device: state.device, mode: state.mode, zoom: state.zoom, timer: state.timer, exposure: $('exposure').value, temperature: $('temperature').value }),
     apply: preset => {
       for (const key of Object.keys(defaults)) {
         const value = preset.settings?.[key];
-        if (allowed[key]?.includes(value) || (typeof defaults[key] === 'boolean' && typeof value === 'boolean')) settings[key] = value;
+        if (allowedSetting(key, value)) settings[key] = value;
       }
       for (const input of $('settings-form').elements) {
         if (!(input.name in settings)) continue;
@@ -1658,9 +1745,11 @@
     recover: (draft, blob) => addMedia(blob, 'video', { ...draft.captureInfo, recordingId: draft.id, created: draft.created }, false),
     cleanTrash: () => deleteItems(state.media.filter(item => item.deletedAt && !item.favorite))
   });
+  window.CameraFullscreen.init({ notice });
   window.CameraLayout.init();
   syncUI();
   loadMedia();
+  startAuthorizedCamera();
   state.frame = requestAnimationFrame(renderLoop);
   requestAnimationFrame(() => centerMode(false));
   window.addEventListener('resize', () => centerMode(false));
@@ -1669,7 +1758,7 @@
   window.addEventListener('appinstalled', () => { installPrompt = null; $('install-status').textContent = 'Aplicativo instalado.'; });
   $('install-app').addEventListener('click', async () => {
     if (installPrompt) { const prompt = installPrompt; installPrompt = null; await prompt.prompt(); const choice = await prompt.userChoice; $('install-status').textContent = choice.outcome === 'accepted' ? 'Instalação solicitada.' : 'Você pode instalar pelo menu do navegador.'; }
-    else $('install-status').textContent = matchMedia('(display-mode: standalone)').matches ? 'Você já está usando a janela do aplicativo.' : 'No menu do navegador, escolha Instalar aplicativo ou Adicionar à tela de início. No Safari, use Compartilhar → Adicionar à Tela de Início.';
+    else $('install-status').textContent = matchMedia('(display-mode: standalone)').matches || matchMedia('(display-mode: fullscreen)').matches || navigator.standalone ? 'Você já está usando a janela do aplicativo.' : 'No menu do navegador, escolha Instalar aplicativo ou Adicionar à tela de início. No Safari, use Compartilhar → Adicionar à Tela de Início.';
   });
   if ('serviceWorker' in navigator && window.isSecureContext) {
     navigator.serviceWorker.register('./sw.js').then((registration) => {
