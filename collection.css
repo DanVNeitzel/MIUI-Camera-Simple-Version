@@ -1,0 +1,12 @@
+.collection-dialog { overflow-y: auto; }
+.collection-dialog label, #album-form { display: grid; gap: 9px; margin: 14px 0; font-size: 13px; }
+.collection-dialog input { background: #28282c; color: #eee; border: 1px solid #555; border-radius: 10px; padding: 12px; min-width: 0; width: 100%; }
+.collection-dialog select { width: 100%; }
+.collection-dialog button { min-height: 44px; font-size: 12px; white-space: normal; }
+.collection-dialog .viewer-actions { flex-wrap: wrap; }
+#storage-summary { font-size: 13px; line-height: 1.6; }
+#storage-clean-trash { margin-top: 16px; width: 100%; }
+#storage-dialog h3 { font-size: 15px; margin-top: 24px; }
+.draft-row { margin: 15px 0; padding: 12px; background: #ffffff08; border: 1px solid #ffffff20; border-radius: 12px; font-size: 12px; }
+.draft-row button { margin: 3px; }
+#record-recovery-state { display: block; font-size: 10px; color: #ddd; margin: 4px 0; }

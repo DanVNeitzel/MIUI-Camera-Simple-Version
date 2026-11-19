@@ -1,0 +1,24 @@
+/* Monitoring canvases are separate from exported pixels. */
+#cinema-overlay, #cinema-guide { position: absolute; pointer-events: none; }
+#cinema-guide { overflow: hidden; display: grid; place-items: center; }
+#cinema-guide > div { position: relative; max-width: 100%; max-height: 100%; }
+#cinema-guide.masked > div { border: 1px solid #fffc; box-shadow: 0 0 0 200vmax #0008; }
+#cinema-guide.safe > div::after { content: ''; position: absolute; inset: 5%; border: 1px dashed #fffc; }
+#cinema-hud { position: absolute; top: calc(100px + env(safe-area-inset-top)); left: 12px; z-index: 1; display: flex; flex-direction: column; gap: 5px; max-width: calc(100% - 24px); pointer-events: none; font-size: 10px; font-variant-numeric: tabular-nums; }
+#cinema-hud > * { background: #111b; border-radius: 5px; padding: 5px; text-shadow: 0 1px 2px #000; }
+#cinema-histogram { width: 144px; height: 45px; }
+#cinema-stats { white-space: pre-line; line-height: 1.5; }
+#cinema-audio { display: flex; align-items: center; flex-wrap: wrap; gap: 6px; }
+#cinema-audio meter { width: 110px; height: 14px; }
+#cinema-audio.clipping { color: #ff7979; }
+.cinema-settings input:not([type="checkbox"]), #cinema-slate-form input, #cinema-search { color: #eee; background: #252525; border: 1px solid #555; border-radius: 7px; padding: 10px; min-width: 0; max-width: 100%; }
+.cinema-settings label { flex-wrap: wrap; gap: 8px; }
+.cinema-settings input[type="checkbox"] { accent-color: var(--accent); width: 22px; height: 22px; }
+.cinema-settings .toggle-row input { width: 44px; height: 44px; top: 50%; transform: translateY(-50%); }
+.cinema-settings .toggle-row { min-height: 44px; }
+.cinema-settings small { color: #aaa; }
+.cinema-settings select { display: block; max-width: 100%; }
+#cinema-slate-form { display: grid; gap: 15px; }
+#cinema-slate-form label { display: grid; gap: 8px; }
+#cinema-search { width: 100%; flex-basis: 100%; }
+.slate-marker { position: absolute; top: 3px; left: 3px; max-width: calc(100% - 6px); background: #000b; padding: 3px 5px; border-radius: 3px; font-size: 9px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }

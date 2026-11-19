@@ -1,0 +1,181 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#080808">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png?v=app-icon-19">
+  <link rel="icon" type="image/svg+xml" sizes="any" href="icons/app-icon.svg?v=app-icon-19">
+  <link rel="apple-touch-icon" sizes="180x180" href="icons/apple-touch-icon.png?v=app-icon-19">
+  <title>MIUI Camera · Simples</title>
+  <link rel="stylesheet" href="vendor/fontawesome/css/fontawesome.min.css">
+  <link rel="stylesheet" href="vendor/fontawesome/css/solid.min.css">
+  <link rel="stylesheet" href="vendor/fontawesome/css/regular.min.css">
+  <link rel="stylesheet" href="style.css?v=layout-18">
+  <script src="storage.js?v=layout-18" defer></script>
+  <script src="looks.js?v=cinema-looks-12" defer></script>
+  <script src="ranges.js?v=touch-focus-6" defer></script>
+  <link rel="stylesheet" href="cinema.css?v=layout-18">
+  <script src="cinema.js?v=layout-18" defer></script>
+  <link rel="stylesheet" href="collection.css?v=layout-18">
+  <script src="collection.js?v=layout-18" defer></script>
+  <link rel="stylesheet" href="layout.css?v=layout-18">
+  <script src="layout.js?v=layout-18" defer></script>
+  <script src="script.js?v=layout-18" defer></script>
+</head>
+<body>
+  <main class="camera-app" tabindex="-1">
+    <div id="stage" class="stage">
+      <video id="source" autoplay muted playsinline aria-hidden="true"></video>
+      <canvas id="preview" aria-label="Prévia da câmera"></canvas>
+      <div id="grid" class="grid" hidden aria-hidden="true"></div>
+      <div id="flash" class="flash" hidden aria-hidden="true"></div>
+      <output id="countdown" class="countdown" aria-live="assertive"></output>
+      <div id="focus-ring" class="focus-ring" hidden aria-hidden="true"></div>
+    </div>
+
+    <header class="topbar">
+      <button id="timer" aria-label="Temporizador: desligado"><i class="fa-solid fa-stopwatch" aria-hidden="true"></i><span>OFF</span></button>
+      <button id="torch" disabled aria-label="Lanterna indisponível" aria-pressed="false"><i class="fa-solid fa-bolt" aria-hidden="true"></i><span>OFF</span></button>
+      <span class="brand" aria-hidden="true"></span>
+      <button id="grid-toggle" aria-label="Mostrar grade" aria-pressed="false"><i class="fa-solid fa-border-all" aria-hidden="true"></i></button>
+      <button id="settings-open" aria-label="Abrir configurações"><i class="fa-solid fa-gear" aria-hidden="true"></i></button>
+    </header>
+
+    <section id="camera-message" class="camera-message" aria-live="polite">
+      <h1>Sua câmera, sem complicação.</h1>
+      <p id="camera-status">Permita o acesso à câmera para começar.</p>
+      <button id="retry" class="primary"><i class="fa-solid fa-camera" aria-hidden="true"></i><span class="button-label">Ativar câmera</span></button>
+    </section>
+
+    <footer class="bottom-controls">
+      <output id="record-time" class="record-time" hidden><i class="fa-solid fa-circle" aria-hidden="true"></i><span>00:00</span></output>
+      <output id="record-recovery-state" hidden></output>
+      <section id="filters-panel" class="filters-panel" aria-labelledby="filters-title" hidden>
+        <div class="filters-header"><h2 id="filters-title">Filtros <span id="filter-current">Nenhum</span></h2><button id="filters-close" aria-label="Fechar filtros"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+        <div id="filter-categories" class="filter-categories" role="group" aria-label="Família de presets"></div>
+        <label class="filter-field"><span class="visually-hidden">Filtro</span><select name="filter" form="settings-form" hidden><option value="none">Nenhum</option><option value="vivid">Vívido</option><option value="soft">Suave</option><option value="bw">P&amp;B</option><option value="warm">Quente</option><option value="cool">Frio</option><option value="fade">Desbotado</option></select></label>
+        <p id="filter-description" class="filter-description" role="status">Cores originais, sem preset aplicado.</p>
+        <label class="filter-intensity-label">Intensidade<input id="filter-intensity" name="filterIntensity" form="settings-form" type="range" min="0" max="1" step="0.05" value="1" aria-label="Intensidade do preset"></label>
+      </section>
+      <div class="zoom-controls" role="group" aria-label="Zoom digital">
+        <button data-zoom="1" aria-pressed="true">1×</button>
+        <button data-zoom="2" aria-pressed="false">2×</button>
+        <button data-zoom="5" aria-pressed="false">5×</button>
+        <button id="zoom-toggle" aria-label="Ajustar zoom" aria-expanded="false"><i class="fa-solid fa-sliders" aria-hidden="true"></i></button>
+      </div>
+      <div id="zoom-slider" class="zoom-slider" hidden><input id="zoom" type="range" min="1" max="8" step="0.1" value="1" aria-label="Zoom digital"><output id="zoom-value">1×</output></div>
+      <div class="lens-label" id="lens-label" hidden><select id="lens" aria-label="Selecionar câmera" hidden></select><div id="lens-buttons" role="group" aria-label="Selecionar lente"></div></div>
+      <nav id="modes" class="modes" aria-label="Modo de captura">
+        <button data-mode="night" aria-pressed="false">NOTURNO</button>
+        <button data-mode="photo" aria-pressed="true">FOTO</button>
+        <button data-mode="video" aria-pressed="false">VÍDEO</button>
+        <button data-mode="portrait" aria-pressed="false">RETRATO</button>
+        <button data-mode="pro" aria-pressed="false">PRO</button>
+      </nav>
+      <div id="pro-controls" class="pro-controls" hidden>
+        <label>Brilho <input id="exposure" type="range" min="-2" max="2" step="0.1" value="0"></label>
+        <label>Cor <input id="temperature" type="range" min="2000" max="8000" step="100" value="5500"></label>
+        <label id="manual-focus-row" hidden>Foco manual<input id="focus-distance" type="range" min="0" max="1" step="0.01" value="0.5" aria-label="Distância de foco"></label>
+        <small>Ajustes digitais</small>
+      </div>
+      <div class="shutter-row">
+        <button id="gallery-open" class="thumbnail" aria-label="Abrir galeria"><span><i class="fa-regular fa-image" aria-hidden="true"></i></span><img id="thumbnail" alt="Última captura" hidden><output id="media-count" hidden></output></button>
+        <button id="shutter" class="shutter" disabled aria-label="Tirar foto"><span></span></button>
+        <div class="camera-actions"><button id="filters-open" class="switch" aria-label="Abrir filtros" aria-controls="filters-panel" aria-expanded="false"><i class="fa-solid fa-wand-magic-sparkles" aria-hidden="true"></i></button><button id="switch" class="switch" disabled aria-label="Trocar câmera"><i class="fa-solid fa-camera-rotate" aria-hidden="true"></i></button></div>
+      </div>
+      <p id="mode-hint" class="mode-hint">Fotos salvas neste navegador</p>
+    </footer>
+    <label class="exposure-control" hidden><span aria-hidden="true"><i class="fa-solid fa-sun"></i></span><input id="brightness" type="range" min="0.5" max="1.8" step="0.05" value="1" aria-label="Brilho digital"><span aria-hidden="true"><i class="fa-solid fa-sun"></i></span></label>
+    <div id="focus-feedback" class="focus-feedback" hidden><span id="focus-status" role="status"></span><button id="focus-unlock" hidden><i class="fa-solid fa-lock-open" aria-hidden="true"></i><span>Desbloquear</span></button></div>
+  </main>
+
+  <dialog id="settings-dialog" aria-labelledby="settings-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="dialog-header"><h2 id="settings-title">Configurações</h2><button data-close aria-label="Fechar configurações"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <form id="settings-form" class="settings-form">
+      <section class="settings-section"><h3>CÂMERA</h3>
+        <label>Câmera padrão<select name="camera"><option value="environment">Traseira</option><option value="user">Frontal</option></select></label>
+        <label class="toggle-row">Tecla de captura <input name="keyboard" type="checkbox" role="switch" aria-describedby="keyboard-hint"><span class="toggle-track" aria-hidden="true"></span></label>
+        <p id="keyboard-hint" class="muted">Ative para capturar com Espaço ou Enter em um teclado. Em vídeo, o atalho inicia ou para a gravação. Botões de volume do celular não são controlados por esta opção.</p>
+      </section>
+      <section class="settings-section"><h3>FOTO</h3>
+        <label>Qualidade<select name="quality"><option value="0.6">Baixa</option><option value="0.78">Média</option><option value="0.92">Alta</option><option value="1">Máx</option></select></label>
+        <label>Formato<select name="format"><option value="image/jpeg">JPEG</option><option value="image/png">PNG</option><option value="image/webp">WebP</option></select></label>
+      </section>
+      <section class="settings-section"><h3>VÍDEO</h3>
+        <label>Resolução<select name="resolution"><option value="720">720p</option><option value="1080">1080p</option><option value="2160">4K</option></select></label>
+        <label class="toggle-row">Gravar com microfone<input name="audio" type="checkbox" role="switch"><span class="toggle-track" aria-hidden="true"></span></label>
+      </section>
+      <section class="settings-section"><h3>COMPOSIÇÃO</h3>
+        <label>Grade<select name="gridType"><option value="none">Nenhuma</option><option value="thirds">Terços</option><option value="square">Quadrado</option><option value="both">Ambas</option></select></label>
+      </section>
+      <section class="settings-section"><h3>SISTEMA</h3><div class="system-actions"><button id="reset-settings" type="button"><i class="fa-solid fa-arrow-rotate-left" aria-hidden="true"></i><span class="button-label">Restaurar padrões</span></button><button id="reload" type="button"><i class="fa-solid fa-rotate" aria-hidden="true"></i><span class="button-label">Recarregar</span></button></div></section>
+      <section class="settings-section"><h3>APLICATIVO</h3><button id="install-app" type="button"><i class="fa-solid fa-mobile-screen-button" aria-hidden="true"></i><span class="button-label">Instalar aplicativo</span></button><p id="install-status" class="muted">A instalação depende do navegador e de HTTPS.</p></section>
+      <p id="actual-resolution" class="muted">A resolução depende do dispositivo.</p>
+      <p id="camera-capabilities" class="muted">Ative a câmera para consultar os recursos disponíveis.</p>
+      <p class="muted">Preferências no localStorage; fotos e vídeos no IndexedDB. Limpar os dados do navegador apaga a galeria. Exporte suas capturas para manter uma cópia.</p>
+    </form>
+  </dialog>
+
+  <dialog id="gallery-dialog" class="gallery-dialog" aria-labelledby="gallery-title">
+    <div class="dialog-header gallery-header"><h2 id="gallery-title">Galeria</h2><div class="gallery-header-actions"><button id="gallery-fullscreen" aria-label="Expandir para tela inteira"><i class="fa-solid fa-expand" aria-hidden="true"></i></button><button id="gallery-select" aria-pressed="false"><i class="fa-solid fa-circle-check" aria-hidden="true"></i><span class="button-label">Selecionar</span></button><button data-close aria-label="Fechar galeria"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div></div>
+    <div id="gallery-tools" class="gallery-tools"><button id="favorites-filter" aria-pressed="false"><i class="fa-regular fa-heart" aria-hidden="true"></i><span class="button-label">Favoritos</span></button><select id="gallery-filter" aria-label="Filtrar galeria"><option value="all">Todas</option><option value="photo">Fotos</option><option value="video">Vídeos</option><option value="trash">Lixeira</option><option value="good">Melhores tomadas</option></select><button id="backup-open" aria-label="Backup e importação"><i class="fa-solid fa-box-archive" aria-hidden="true"></i><span class="button-label">Backup</span></button></div>
+    <p id="trash-info" class="muted" hidden>Os itens sem favorito ficam na lixeira por 30 dias. Favoritos são protegidos contra exclusão. A limpeza acontece ao abrir o aplicativo.</p>
+    <p id="gallery-loading" class="muted" role="status"></p>
+    <div id="selection-bar" class="selection-bar" hidden><output id="selection-count" aria-live="polite">0 selecionadas</output><button id="select-all"><i class="fa-solid fa-check-double" aria-hidden="true"></i><span class="button-label">Selecionar todas</span></button><button id="selection-actions" disabled><i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span class="button-label">Opções</span></button></div>
+    <p id="gallery-empty" class="muted">Nenhuma captura ainda.</p>
+    <div id="gallery-grid" class="gallery-grid"></div>
+    <button id="gallery-more" hidden><i class="fa-solid fa-chevron-down" aria-hidden="true"></i><span class="button-label">Carregar mais</span></button>
+    <section id="viewer" class="viewer" hidden>
+      <button id="viewer-back"><i class="fa-solid fa-arrow-left" aria-hidden="true"></i><span class="button-label">Voltar à galeria</span></button>
+      <div id="viewer-stage" class="viewer-stage"><img id="viewer-image" alt="Foto selecionada" hidden><video id="viewer-video" controls playsinline hidden></video><output id="viewer-zoom" aria-live="polite" hidden>1×</output></div>
+      <p id="save-state" class="muted"></p>
+      <div class="viewer-actions"><button id="viewer-prev" aria-label="Captura anterior"><i class="fa-solid fa-chevron-left" aria-hidden="true"></i></button><button id="download" class="primary"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="button-label">Baixar</span></button><button id="viewer-options"><i class="fa-solid fa-ellipsis" aria-hidden="true"></i><span class="button-label">Opções</span></button><button id="delete" class="danger"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Excluir</span></button><button id="viewer-next" aria-label="Próxima captura"><i class="fa-solid fa-chevron-right" aria-hidden="true"></i></button></div>
+    </section>
+    <div id="undo-bar" class="undo-bar" role="status" hidden><span id="undo-message"></span><button id="undo-trash"><i class="fa-solid fa-rotate-left" aria-hidden="true"></i><span class="button-label">Desfazer</span></button></div>
+  </dialog>
+  <dialog id="media-menu" class="action-sheet" aria-labelledby="media-menu-title">
+    <div class="sheet-handle" aria-hidden="true"></div>
+    <div class="dialog-header"><h2 id="media-menu-title">Opções da foto</h2><button data-close aria-label="Fechar opções"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <div class="media-menu-actions">
+      <button id="action-favorite"><i class="fa-regular fa-heart" aria-hidden="true"></i><span class="button-label">Adicionar aos favoritos</span></button>
+      <button id="action-share"><i class="fa-solid fa-share-nodes" aria-hidden="true"></i><span class="button-label">Compartilhar</span></button>
+      <button id="action-download"><i class="fa-solid fa-download" aria-hidden="true"></i><span class="button-label">Baixar foto</span></button>
+      <button id="action-edit"><i class="fa-solid fa-pen-to-square" aria-hidden="true"></i><span class="button-label">Editar</span></button>
+      <button id="action-properties"><i class="fa-solid fa-circle-info" aria-hidden="true"></i><span class="button-label">Propriedades</span></button>
+      <button id="action-restore" hidden><i class="fa-solid fa-trash-arrow-up" aria-hidden="true"></i><span class="button-label">Restaurar da lixeira</span></button>
+      <button id="action-delete" class="danger"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Excluir foto</span></button>
+      <button data-close class="cancel-action"><i class="fa-solid fa-xmark" aria-hidden="true"></i><span class="button-label">Cancelar</span></button>
+    </div>
+    <p id="menu-status" class="muted" role="status"></p>
+  </dialog>
+  <dialog id="properties-dialog" aria-labelledby="properties-title">
+    <div class="dialog-header"><h2 id="properties-title">Propriedades</h2><button data-close aria-label="Fechar propriedades"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <div id="properties-content"></div>
+  </dialog>
+  <dialog id="editor-dialog" class="editor-dialog" aria-labelledby="editor-title">
+    <div class="dialog-header"><h2 id="editor-title">Editar foto</h2><button data-close aria-label="Fechar editor"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div>
+    <div class="editor-stage"><canvas id="editor-canvas" aria-label="Prévia da edição"></canvas></div>
+    <div class="editor-controls">
+      <div class="viewer-actions"><button id="editor-rotate"><i class="fa-solid fa-rotate-right" aria-hidden="true"></i><span class="button-label">Girar</span></button><button id="editor-mirror" aria-pressed="false"><i class="fa-solid fa-arrows-left-right" aria-hidden="true"></i><span class="button-label">Espelhar</span></button><button id="editor-crop" aria-pressed="false"><i class="fa-solid fa-crop-simple" aria-hidden="true"></i><span class="button-label">Quadrado</span></button></div>
+      <label>Recorte<select id="editor-ratio"><option value="original">Original</option><option value="free">Livre</option><option value="1">1:1</option><option value="0.5625">9:16</option><option value="1.7777777778">16:9</option><option value="0.75">3:4</option></select></label>
+      <div id="crop-controls" class="crop-controls" hidden><label>Largura<input id="crop-width" type="range" min="5" max="100" value="100"></label><label>Altura<input id="crop-height" type="range" min="5" max="100" value="100"></label><label>Posição X<input id="crop-x" type="range" min="0" max="100" value="50"></label><label>Posição Y<input id="crop-y" type="range" min="0" max="100" value="50"></label></div>
+      <label>Brilho<input id="editor-brightness" type="range" min="0.4" max="1.8" step="0.05" value="1"></label>
+      <label>Contraste<input id="editor-contrast" type="range" min="0.4" max="1.8" step="0.05" value="1"></label>
+      <label>Saturação<input id="editor-saturation" type="range" min="0" max="2" step="0.05" value="1"></label>
+      <label>Filtro<select id="editor-filter"><option value="none">Original</option><option value="bw">Preto e branco</option><option value="vivid">Vívido</option><option value="warm">Quente</option><option value="cool">Frio</option></select></label>
+      <label>Intensidade do preset<input id="editor-filter-intensity" type="range" min="0" max="1" step="0.05" value="1"></label>
+      <p class="muted">A edição será salva como uma nova foto. O original é preservado.</p>
+      <button id="editor-compare" aria-pressed="false"><i class="fa-solid fa-eye" aria-hidden="true"></i><span class="button-label">Ver antes</span></button>
+      <button id="editor-save" class="primary"><i class="fa-solid fa-floppy-disk" aria-hidden="true"></i><span class="button-label">Salvar cópia</span></button>
+    </div>
+    <p id="editor-status" role="status"></p>
+  </dialog>
+  <dialog id="backup-dialog" aria-labelledby="backup-title"><div class="dialog-header"><h2 id="backup-title">Backup e restauração</h2><button data-close aria-label="Fechar backup"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><p class="muted">Exporte fotos, vídeos, favoritos e lixeira em um arquivo .miuicam. A importação adiciona cópias sem substituir sua coleção. Não são enviados arquivos a servidores.</p><button id="backup-export" class="primary"><i class="fa-solid fa-file-export" aria-hidden="true"></i><span class="button-label">Exportar coleção</span></button><label class="import-label">Restaurar backup<input id="backup-file" type="file" accept=".miuicam,application/octet-stream"></label><p id="backup-status" role="status"></p></dialog>
+  <dialog id="confirm-delete" aria-labelledby="confirm-delete-title"><div class="dialog-header"><h2 id="confirm-delete-title">Excluir permanentemente?</h2><button data-close aria-label="Cancelar exclusão"><i class="fa-solid fa-xmark" aria-hidden="true"></i></button></div><p>Esta ação remove os arquivos da lixeira e não pode ser desfeita.</p><div class="viewer-actions"><button data-close><i class="fa-solid fa-xmark" aria-hidden="true"></i><span class="button-label">Cancelar</span></button><button id="confirm-delete-action" class="danger"><i class="fa-solid fa-trash-can" aria-hidden="true"></i><span class="button-label">Excluir permanentemente</span></button></div></dialog>
+  <p id="notice" class="notice" role="status" hidden></p>
+</body>
+</html>
